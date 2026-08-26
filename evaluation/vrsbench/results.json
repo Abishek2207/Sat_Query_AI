@@ -1,0 +1,8 @@
+{
+  "benchmark_name": "VRSBench",
+  "status": "DATASET_NOT_AVAILABLE",
+  "metrics": null,
+  "expected_format": "JSON annotations mapping to GeoTIFF/PNG satellite images.",
+  "dataset_path": "datasets/vrsbench",
+  "description": "Visual Question Answering on diverse remote sensing scenes."
+}

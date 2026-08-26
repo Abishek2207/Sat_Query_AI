@@ -1,0 +1,8 @@
+{
+  "benchmark_name": "RSVQA",
+  "status": "DATASET_NOT_AVAILABLE",
+  "metrics": null,
+  "expected_format": "GeoTIFF tiles with JSON Q/A pairs (Low/High resolution splits).",
+  "dataset_path": "datasets/rsvqa",
+  "description": "Baseline Remote-Sensing Visual Question Answering."
+}

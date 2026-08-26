@@ -1,0 +1,28 @@
+{
+  "dataset": "arampacha/rsicd",
+  "train_samples": 400,
+  "validation_samples": 100,
+  "baseline_evaluation_samples": 20,
+  "adapted_evaluation_samples": 20,
+  "model": "Salesforce/blip-image-captioning-base",
+  "training_status": "SUCCESS",
+  "baseline_metrics": {"qualitative": "See baseline_predictions.jsonl"},
+  "adapted_metrics": {"qualitative": "See adapted_predictions.jsonl"},
+  "training_parameters": {
+    "r": 8,
+    "alpha": 16,
+    "lr": 1e-05,
+    "epochs": 1,
+    "batch_size": 1,
+    "grad_accum": 4,
+    "training_loop": "custom_pytorch_no_dataloader"
+  },
+  "training_results": {
+    "avg_loss": 4.7410313528776165,
+    "duration_seconds": 425.3154320716858
+  },
+  "trainable_parameters": "589824",
+  "checkpoint": "models/rsicd_blip_lora/adapter_model.safetensors",
+  "error": null,
+  "adapter_reloaded_test": "PASS"
+}

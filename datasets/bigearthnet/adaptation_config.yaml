@@ -1,0 +1,8 @@
+base_model: Salesforce/blip-vqa-base
+adaptation_dataset: datasets/bigearthnet/BigEarthNet.txt.parquet
+adaptation_method: LoRA
+sample_size: 1000
+epochs: 5
+learning_rate: 2.0e-05
+output_dir: models/rs_adapted_vqa
+status: DATA_REQUIRED
