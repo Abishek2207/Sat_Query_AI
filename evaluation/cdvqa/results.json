@@ -1,0 +1,8 @@
+{
+  "benchmark_name": "CDVQA",
+  "status": "DATASET_NOT_AVAILABLE",
+  "metrics": null,
+  "expected_format": "Bi-temporal image pairs (T1, T2) with change-detection Q/A pairs.",
+  "dataset_path": "datasets/cdvqa",
+  "description": "Change Detection Visual Question Answering."
+}

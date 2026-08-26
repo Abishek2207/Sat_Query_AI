@@ -1,0 +1,58 @@
+# Secrets
+.env
+*.key
+*secret*
+*credentials*
+
+# Node
+node_modules/
+frontend/dist/
+.npm/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+env/
+.venv/
+.pytest_cache/
+
+# Models & Weights (Hugging Face cache, downloaded weights)
+models/*/adapter_model.safetensors
+models/*/adapter_model.bin
+models/*/pytorch_model.bin
+models/*/model.safetensors
+*.safetensors
+*.bin
+*.h5
+*.pt
+.cache/
+.huggingface/
+
+# Datasets & Imagery (Large raw datasets, raw satellite imagery)
+datasets/bigearthnet/*.parquet
+datasets/rsicd/images/
+datasets/bigearthnet/images/
+datasets/**/*.tif
+datasets/**/*.tiff
+datasets/**/*.jpg
+datasets/**/*.jpeg
+datasets/**/*.png
+# We DO KEEP manifests like *.jsonl, *.parquet (unless specified above), etc.
+!datasets/rsicd/*.jsonl
+
+# Temp files & Logs
+logs/
+*.log
+scratch/*.log
+temp/
+tmp/
+*.tmp
+*.temp
+
+# IDEs / OS
+.vscode/
+.idea/
+.DS_Store
+desktop.ini

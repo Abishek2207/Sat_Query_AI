@@ -1,0 +1,8 @@
+{
+  "benchmark_name": "ISRO_SAC",
+  "status": "ORGANIZER_EVALUATION_PENDING",
+  "metrics": null,
+  "expected_format": "ISRO optical/SAR payload data with domain-specific expert QA annotations.",
+  "dataset_path": "datasets/isro_sac",
+  "description": "Custom Indian Space Research Organisation (SAC) Evaluation Dataset."
+}
