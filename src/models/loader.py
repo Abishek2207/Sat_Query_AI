@@ -46,7 +46,17 @@ def load_blip_rsicd(base_name="Salesforce/blip-image-captioning-base", adapter_p
     model = BlipForConditionalGeneration.from_pretrained(base_name)
     
     if not os.path.exists(adapter_path):
-        raise FileNotFoundError(f"[Loader] Adapter tensor file missing at {adapter_path}")
+        adapter_url = os.environ.get("RSICD_ADAPTER_URL")
+        if adapter_url:
+            print(f"[Loader] Downloading adapter from {adapter_url}...")
+            import urllib.request
+            os.makedirs(os.path.dirname(adapter_path), exist_ok=True)
+            urllib.request.urlretrieve(adapter_url, adapter_path)
+        else:
+            raise FileNotFoundError(
+                f"[Loader] Adapter tensor file missing at {adapter_path}. "
+                "Please ensure it is committed or provide RSICD_ADAPTER_URL env var."
+            )
         
     print(f"[Loader] Injecting native PyTorch LoRA...")
     replaced = inject_lora(model, r=8, alpha=16)
