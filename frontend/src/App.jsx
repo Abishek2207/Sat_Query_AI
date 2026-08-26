@@ -181,8 +181,8 @@ ${JSON.stringify(result.validation, null, 2)}
         <div className="logo-area">
           <Satellite className="logo-icon" size={32} />
           <div>
-            <h1>SATQUERY AI</h1>
-            <span className="subtitle">Remote Sensing Intelligence</span>
+            <h1>SIH RSICD CAPTIONING</h1>
+            <span className="subtitle">BLIP + LoRA Remote Sensing Model</span>
           </div>
         </div>
         <div className="nav-area">
@@ -286,13 +286,13 @@ ${JSON.stringify(result.validation, null, 2)}
         <section className="panel center-panel glass">
           <div className="panel-header">
             <Search size={20} />
-            <h2>ANALYSIS RESULT</h2>
+            <h2>RSICD BLIP LORA CAPTIONING</h2>
           </div>
           
           {!result && !loading && (
              <div className="empty-state-container">
                <Satellite size={48} className="text-muted" style={{opacity: 0.2, marginBottom: '20px'}}/>
-               <p className="empty-state">Awaiting mission input...</p>
+               <p className="empty-state">Awaiting remote-sensing image input...</p>
              </div>
           )}
 
