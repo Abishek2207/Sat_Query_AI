@@ -178,7 +178,7 @@ function App() {
       <nav className="top-nav glass">
         <div className="nav-brand">
           <Satellite size={24} className="text-cyan" />
-          <h1>SatQuery AI</h1>
+          <h1 style={{fontSize: '20px', margin: 0}}>SATQUERY AI</h1>
         </div>
         <div className="nav-links">
           <button className={`nav-btn ${activeTab === 'mission' ? 'active' : ''}`} onClick={() => setActiveTab('mission')}>
@@ -192,6 +192,11 @@ function App() {
 
       {activeTab === 'mission' ? (
       <main className="main-content">
+        <header className="header" style={{textAlign: 'center', marginBottom: '40px', marginTop: '20px'}}>
+          <h1 style={{fontSize: '48px', fontWeight: 700, margin: 0, letterSpacing: '-0.015em', background: 'linear-gradient(135deg, var(--text-color), #888)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent'}}>SATQUERY AI</h1>
+          <h2 style={{fontSize: '24px', fontWeight: 400, color: '#86868b', marginTop: '10px'}}>Interactive Vision-Language Assistant</h2>
+          <p style={{fontSize: '18px', color: '#86868b'}}>Remote Sensing Intelligence</p>
+        </header>
         
         {/* LEFT PANEL: INPUT */}
         <section className="panel left-panel glass">
@@ -428,15 +433,21 @@ function App() {
             <h2>Benchmark Evaluations</h2>
             <div className="eval-grid" style={{gridTemplateColumns: '1fr', marginTop: '20px'}}>
               {evaluations.map((ev, idx) => (
-                <div key={idx} className="eval-card" style={{border: '1px solid #333', background: '#0a0a0a', padding: '15px'}}>
-                  <div className="eval-card-header">
-                    <h3>{ev.benchmark_name}</h3>
-                    <span className={`badge ${ev.status === 'NOT_AVAILABLE' ? 'badge-warn' : 'badge-success'}`}>
+                <div key={idx} className="eval-card" style={{border: '1px solid var(--border-color)', background: 'var(--card-bg)', padding: '15px'}}>
+                  <div className="eval-card-header" style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+                    <h3 style={{margin: 0}}>{ev.benchmark_name}</h3>
+                    <span className={`badge ${ev.status === 'NOT_AVAILABLE' ? 'badge-warn' : (ev.status === 'PARTIAL' ? 'badge-partial' : 'badge-success')}`}>
                       {ev.evalStatus || ev.status}
                     </span>
                   </div>
-                  <p className="eval-desc text-small text-muted">{ev.description}</p>
-                  <p className="eval-desc text-small text-muted">Path: {ev.dataset_path}</p>
+                  <p className="eval-desc text-small text-muted" style={{marginTop: '10px'}}>{ev.description}</p>
+                  
+                  {ev.status === 'NOT_AVAILABLE' && (
+                    <p className="text-small" style={{color: '#ff3b30', fontWeight: 600}}>NOT_AVAILABLE — MANUAL DATA REQUIRED</p>
+                  )}
+                  {ev.status === 'PARTIAL' && (
+                    <p className="text-small" style={{color: '#ff9f0a', fontWeight: 600}}>PARTIAL — MISSING IMAGE SAMPLES</p>
+                  )}
                   
                   {ev.evalResult && (
                     <div style={{marginTop: '10px', padding: '10px', background: '#111'}}>
