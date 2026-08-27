@@ -58,16 +58,6 @@ def validate_image_bytes(
             )
 
     if ext in {"png", "jpg", "jpeg"}:
-
-        if not benchmark_mode:
-            return ValidationResult(
-                valid=False,
-                reason=(
-                    "PNG/JPEG rejected. "
-                    "Only GeoTIFF/TIFF is allowed outside benchmark mode."
-                ),
-            )
-
         try:
             image = Image.open(io.BytesIO(file_bytes))
             image.verify()

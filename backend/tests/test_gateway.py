@@ -8,12 +8,6 @@ def test_health():
     res = client.get("/health").json()
     assert res["api_status"] == "AVAILABLE"
 
-def test_png_rejected_without_benchmark(valid_png_bytes):
-    files = [("files", ("test.png", valid_png_bytes, "image/png"))]
-    res = client.post("/analyze", data={"query": "test"}, files=files).json()
-    assert res["status"] == "INVALID_INPUT"
-    assert "PNG/JPEG rejected" in res["execution_trace"][0]
-
 def test_png_accepted_with_benchmark(valid_png_bytes):
     files = [("files", ("test.png", valid_png_bytes, "image/png"))]
     res = client.post("/analyze", data={"query": "test", "benchmark_mode": "true"}, files=files).json()
