@@ -14,9 +14,15 @@ app = FastAPI(title="SatQuery AI API Gateway", version="1.0.0")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "https://satquery-ai.vercel.app"
+    ],
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["*"],
 )
 
@@ -86,27 +92,36 @@ async def analyze(
         "trace": [],
     }
 
-    result = await app_graph.ainvoke(state)
-    api_res = result.get("api_response", {})
+    try:
+        result = await app_graph.ainvoke(state)
+        api_res = result.get("api_response", {})
 
-    response_obj = AnalysisResponse(
-        task=result.get("selected_task", "unknown"),
-        answer=api_res.get("answer", "ERROR"),
-        status=api_res.get("status", "ERROR"),
-        evidence=api_res.get("evidence", []),
-        visual_output=api_res.get("visual_output"),
-        confidence=api_res.get("confidence"),
-        execution_trace=result.get("trace", []),
-        provenance=api_res.get("provenance"),
-        validation=result.get("validation_results"),
-        conflict=api_res.get("conflict", False),
-        abstention_reason=api_res.get("abstention_reason")
-    )
-    
-    # Log to history DB
-    log_request(query, response_obj.model_dump())
+        response_obj = AnalysisResponse(
+            task=result.get("selected_task", "unknown"),
+            answer=api_res.get("answer", "ERROR"),
+            status=api_res.get("status", "ERROR"),
+            evidence=api_res.get("evidence", []),
+            visual_output=api_res.get("visual_output"),
+            confidence=api_res.get("confidence"),
+            execution_trace=result.get("trace", []),
+            provenance=api_res.get("provenance"),
+            validation=result.get("validation_results"),
+            conflict=api_res.get("conflict", False),
+            abstention_reason=api_res.get("abstention_reason")
+        )
+        
+        # Log to history DB
+        log_request(query, response_obj.model_dump())
 
-    return response_obj
+        return response_obj
+    except Exception as e:
+        return AnalysisResponse(
+            task="unknown",
+            status="ERROR",
+            answer="An internal server error occurred during analysis.",
+            evidence=[],
+            execution_trace=["ERROR: " + str(e)]
+        )
 
 @app.post("/report")
 async def download_report(
@@ -130,26 +145,29 @@ async def download_report(
         "trace": [],
     }
 
-    result = await app_graph.ainvoke(state)
-    api_res = result.get("api_response", {})
+    try:
+        result = await app_graph.ainvoke(state)
+        api_res = result.get("api_response", {})
 
-    response_obj = AnalysisResponse(
-        task=result.get("selected_task", "unknown"),
-        answer=api_res.get("answer", "ERROR"),
-        status=api_res.get("status", "ERROR"),
-        evidence=api_res.get("evidence", []),
-        visual_output=None,
-        confidence=api_res.get("confidence"),
-        execution_trace=result.get("trace", []),
-        provenance=api_res.get("provenance"),
-        validation=result.get("validation_results"),
-        conflict=api_res.get("conflict", False),
-        abstention_reason=api_res.get("abstention_reason")
-    )
+        response_obj = AnalysisResponse(
+            task=result.get("selected_task", "unknown"),
+            answer=api_res.get("answer", "ERROR"),
+            status=api_res.get("status", "ERROR"),
+            evidence=api_res.get("evidence", []),
+            visual_output=None,
+            confidence=api_res.get("confidence"),
+            execution_trace=result.get("trace", []),
+            provenance=api_res.get("provenance"),
+            validation=result.get("validation_results"),
+            conflict=api_res.get("conflict", False),
+            abstention_reason=api_res.get("abstention_reason")
+        )
 
-    report_bytes = generate_pdf_report(response_obj, query)
-    return Response(
-        content=report_bytes,
-        media_type="application/pdf",
-        headers={"Content-Disposition": "attachment; filename=SatQuery_Report.pdf"},
-    )
+        report_bytes = generate_pdf_report(response_obj, query)
+        return Response(
+            content=report_bytes,
+            media_type="application/pdf",
+            headers={"Content-Disposition": "attachment; filename=SatQuery_Report.pdf"},
+        )
+    except Exception as e:
+        return Response(content=f"Report generation failed: {str(e)}", status_code=500)
