@@ -24,8 +24,9 @@ async def run_benchmark_evaluation(dataset_id: str, limit: int = 5):
             "split": "test",
             "reference_available": False,
             "evaluated_samples": 0,
-            "metric": "NOT_IMPLEMENTED",
-            "score": "NOT_IMPLEMENTED",
+            "metric": None,
+            "score": None,
+            "status": "NOT_AVAILABLE",
             "generated_at": datetime.utcnow().isoformat() + "Z",
             "message": f"Dataset {dataset_id} NOT_AVAILABLE. Please download first."
         }
@@ -37,8 +38,9 @@ async def run_benchmark_evaluation(dataset_id: str, limit: int = 5):
             "split": "test",
             "reference_available": True,
             "evaluated_samples": 0,
-            "metric": "NOT_IMPLEMENTED",
-            "score": "NOT_IMPLEMENTED",
+            "metric": None,
+            "score": None,
+            "status": "FAILED",
             "generated_at": datetime.utcnow().isoformat() + "Z",
             "message": f"Evaluation aborted: {vram_msg}"
         }
@@ -52,8 +54,9 @@ async def run_benchmark_evaluation(dataset_id: str, limit: int = 5):
             "split": "test",
             "reference_available": False,
             "evaluated_samples": 0,
-            "metric": "NOT_IMPLEMENTED",
-            "score": "NOT_IMPLEMENTED",
+            "metric": None,
+            "score": None,
+            "status": "NOT_AVAILABLE",
             "generated_at": datetime.utcnow().isoformat() + "Z",
             "message": "Dataset structure invalid: no images directory."
         }
@@ -65,8 +68,9 @@ async def run_benchmark_evaluation(dataset_id: str, limit: int = 5):
             "split": "test",
             "reference_available": False,
             "evaluated_samples": 0,
-            "metric": "NOT_IMPLEMENTED",
-            "score": "NOT_IMPLEMENTED",
+            "metric": None,
+            "score": None,
+            "status": "NOT_AVAILABLE",
             "generated_at": datetime.utcnow().isoformat() + "Z",
             "message": "No images found in dataset."
         }
@@ -82,8 +86,9 @@ async def run_benchmark_evaluation(dataset_id: str, limit: int = 5):
             "split": "test",
             "reference_available": False,
             "evaluated_samples": 0,
-            "metric": "NOT_IMPLEMENTED",
-            "score": "NOT_IMPLEMENTED",
+            "metric": None,
+            "score": None,
+            "status": "NOT_AVAILABLE",
             "generated_at": datetime.utcnow().isoformat() + "Z",
             "message": "Annotations file NOT_AVAILABLE. Cannot compute metrics."
         }
@@ -124,10 +129,11 @@ async def run_benchmark_evaluation(dataset_id: str, limit: int = 5):
             "split": "test",
             "reference_available": True,
             "evaluated_samples": 0,
-            "metric": "NOT_IMPLEMENTED",
-            "score": "NOT_IMPLEMENTED",
+            "metric": None,
+            "score": None,
+            "status": "NOT_AVAILABLE" if not image_files else "FAILED",
             "generated_at": datetime.utcnow().isoformat() + "Z",
-            "message": "All samples failed during evaluation."
+            "message": "All samples failed during evaluation or dataset empty."
         }
         
     # Compute metric
@@ -135,7 +141,7 @@ async def run_benchmark_evaluation(dataset_id: str, limit: int = 5):
         metric_name = "exact_match"
         score = exact_match_accuracy(predictions, references)
     else:
-        metric_name = "bleu_proxy"
+        metric_name = "diagnostic_overlap" # explicitly NOT an official benchmark score
         score = sum(simple_caption_match(p, r) for p, r in zip(predictions, references)) / total
 
     return {
@@ -145,6 +151,7 @@ async def run_benchmark_evaluation(dataset_id: str, limit: int = 5):
         "evaluated_samples": total,
         "metric": metric_name,
         "score": round(score, 4),
+        "status": "COMPLETED",
         "generated_at": datetime.utcnow().isoformat() + "Z",
         "provenance": {
             "dataset_version": "1.0",
