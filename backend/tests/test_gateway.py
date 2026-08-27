@@ -27,8 +27,13 @@ def test_synthetic_geotiff_accepted(synthetic_geotiff_bytes):
 
 def test_vqa_routing(synthetic_geotiff_bytes):
     files = [("files", ("test.tif", synthetic_geotiff_bytes, "image/tiff"))]
-    res = client.post("/analyze", data={"query": "What is the dominant land cover?"}, files=files).json()
+    res = client.post("/analyze", data={"query": "How many buildings are visible?"}, files=files).json()
     assert res["task"] == "vqa"
+
+def test_land_cover_routing(synthetic_geotiff_bytes):
+    files = [("files", ("test.tif", synthetic_geotiff_bytes, "image/tiff"))]
+    res = client.post("/analyze", data={"query": "What is the dominant land cover?"}, files=files).json()
+    assert res["task"] == "land_cover_classification"
 
 def test_grounding_routing(synthetic_geotiff_bytes):
     files = [("files", ("test.tif", synthetic_geotiff_bytes, "image/tiff"))]

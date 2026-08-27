@@ -78,7 +78,7 @@ def verify_optical_sar_pair(
                         "adaptation_method": None,
                         "remote_sensing_adapted": False,
                         "inference_timestamp": "",
-                        "input_filenames": [],
+                        "device": device if "device" in globals() or "device" in locals() else "cpu", "input_filenames": [],
                         "input_modalities": ["optical", "sar"],
                         "crs": crs1,
                         "geospatial_evidence_generated": False,

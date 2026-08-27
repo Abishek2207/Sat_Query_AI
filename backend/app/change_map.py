@@ -95,7 +95,7 @@ def compute_change_baseline(
                         "adaptation_method": None,
                         "remote_sensing_adapted": False,
                         "inference_timestamp": "",  # filled by caller
-                        "input_filenames": [],       # filled by caller
+                        "device": device if "device" in globals() or "device" in locals() else "cpu", "input_filenames": [],       # filled by caller
                         "input_modalities": ["unknown", "unknown"],
                         "crs": str(src1.crs) if src1.crs else None,
                         "geospatial_evidence_generated": True,

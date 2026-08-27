@@ -45,6 +45,13 @@ MODEL_REGISTRY = {
         "required_images": 2,
         "permitted_parameters": [],
     },
+    
+    "land_cover_classification": {
+        "base_url": os.getenv("LAND_COVER_ENDPOINT", ""),
+        "input_requirements": ["geotiff", "benchmark_rgb"],
+        "required_images": 1,
+        "permitted_parameters": [],
+    },
 }
 
 

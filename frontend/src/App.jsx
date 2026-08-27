@@ -286,7 +286,7 @@ ${JSON.stringify(result.validation, null, 2)}
         <section className="panel center-panel glass">
           <div className="panel-header">
             <Search size={20} />
-            <h2>RSICD BLIP LORA CAPTIONING</h2>
+            <h2>{result ? `Task: ${result.task.toUpperCase()} | Specialist: ${result.provenance?.model || 'Unknown'} | Device: ${result.provenance?.device || 'CPU'}` : 'AWAITING MISSION'}</h2>
           </div>
           
           {!result && !loading && (

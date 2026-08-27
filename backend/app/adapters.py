@@ -22,6 +22,9 @@ async def call_specialist_model(task: str, query: str, files_data: List[Dict], p
             return run_local_captioning(files_data)
         elif task == "grounding":
             return run_local_grounding(query, files_data, params.get("confidence_threshold", 0.3))
+        elif task == "land_cover_classification":
+            from .eurosat_classifier import run_eurosat_classification
+            return run_eurosat_classification(files_data)
         elif task == "change_analysis":
             from .change_map import compute_change_baseline
             return compute_change_baseline(files_data[0]["bytes"], files_data[1]["bytes"])
