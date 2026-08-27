@@ -1,0 +1,27 @@
+{
+  "dataset": "arampacha/rsicd",
+  "train_samples": 400,
+  "validation_samples": 100,
+  "model": "Salesforce/blip-image-captioning-base",
+  "training_status": "COMPLETED",
+  "training_parameters": {
+    "r": 8,
+    "alpha": 16,
+    "epochs": 1,
+    "batch_size": 1,
+    "grad_accum": 4,
+    "learning_rate": 0.0001
+  },
+  "trainable_parameters": 589824,
+  "checkpoint": "models\\rsicd_blip_lora_local",
+  "final_train_loss": 7.122200148105621,
+  "duration_seconds": 399.8809552192688,
+  "baseline_metrics": {
+    "bleu": 0.024550913543016094,
+    "rouge_l": 0.18488928297364832
+  },
+  "adapted_metrics": {
+    "bleu": 0.08160143221673646,
+    "rouge_l": 0.31183453282271517
+  }
+}

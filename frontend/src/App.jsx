@@ -1,292 +1,261 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import axios from 'axios';
-import { useDropzone } from 'react-dropzone';
-import { 
-  Satellite, Server, AlertCircle, CheckCircle2, 
-  UploadCloud, FileImage, X, Search, Activity,
-  Database, FileCode2, Info, Map, ChevronRight, Layers, FileDown
-} from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Upload, FileImage, FileDown, Search, Cpu, Database, AlertCircle, CheckCircle2, ChevronRight, X, Layers, Activity, Satellite, BarChart2 } from 'lucide-react';
 import './App.css';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000';
 
 function App() {
-  const [images, setImages] = useState([]);
+  const [files, setFiles] = useState([]);
   const [query, setQuery] = useState('');
-  const [benchmarkMode, setBenchmarkMode] = useState(true);
   const [result, setResult] = useState(null);
-  const [health, setHealth] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [activeTab, setActiveTab] = useState('ANSWER');
-  const [pipelineStep, setPipelineStep] = useState(0);
-  const [currentView, setCurrentView] = useState('workspace');
+  const [error, setError] = useState('');
+  const [activeTab, setActiveTab] = useState('mission'); // 'mission' or 'admin'
+  const [adminStats, setAdminStats] = useState(null);
+  const [adminHistory, setAdminHistory] = useState([]);
   const [evaluations, setEvaluations] = useState([]);
+  
+  const [pipelineStep, setPipelineStep] = useState(0);
+  const imageContainerRef = useRef(null);
 
-  const fetchHealth = async () => {
-    try {
-      const res = await axios.get(`${API_BASE_URL}/health`);
-      setHealth(res.data);
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
-  const fetchEvaluations = async () => {
-    try {
-      const res = await axios.get(`${API_BASE_URL}/evaluations`);
-      setEvaluations(res.data.evaluations || []);
-    } catch (err) {
-      console.error(err);
-    }
-  };
-
+  // Auto-progress pipeline visualization for UI feeling
   useEffect(() => {
-    fetchHealth();
-    fetchEvaluations();
-  }, []);
-
-  // Simulate pipeline progress while loading
-  useEffect(() => {
-    let interval;
-    if (loading) {
-      setPipelineStep(1);
-      interval = setInterval(() => {
-        setPipelineStep(prev => (prev < 4 ? prev + 1 : prev));
+    let timer;
+    if (loading && pipelineStep < 3) {
+      timer = setTimeout(() => {
+        setPipelineStep(prev => prev + 1);
       }, 800);
-    } else if (result) {
-      setPipelineStep(5); // Complete
-    } else {
-      setPipelineStep(0);
     }
-    return () => clearInterval(interval);
-  }, [loading, result]);
+    return () => clearTimeout(timer);
+  }, [loading, pipelineStep]);
 
-  const onDrop = useCallback(acceptedFiles => {
-    const newFiles = acceptedFiles.map(file => Object.assign(file, {
-      preview: URL.createObjectURL(file)
-    }));
-    setImages(prev => {
-      const combined = [...prev, ...newFiles];
-      if (combined.length > 2) {
-        alert("Maximum 2 images allowed. The first 2 will be kept.");
-        return combined.slice(0, 2);
+  useEffect(() => {
+    if (activeTab === 'admin') {
+      fetchAdminData();
+    }
+  }, [activeTab]);
+
+  const fetchAdminData = async () => {
+    try {
+      const statsRes = await fetch(`${API_BASE_URL}/admin/stats`);
+      const histRes = await fetch(`${API_BASE_URL}/admin/history`);
+      const evalRes = await fetch(`${API_BASE_URL}/evaluations`);
+      
+      if (statsRes.ok) setAdminStats(await statsRes.json());
+      if (histRes.ok) {
+        const histData = await histRes.json();
+        setAdminHistory(histData.history || []);
       }
-      return combined;
-    });
-  }, []);
-
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    onDrop,
-    accept: {
-      'image/jpeg': ['.jpeg', '.jpg'],
-      'image/png': ['.png'],
-      'image/tiff': ['.tif', '.tiff']
-    },
-    maxFiles: 2
-  });
-
-  const removeImage = (idx) => {
-    const newImages = [...images];
-    URL.revokeObjectURL(newImages[idx].preview);
-    newImages.splice(idx, 1);
-    setImages(newImages);
+      if (evalRes.ok) {
+        const evals = await evalRes.json();
+        setEvaluations(evals.evaluations || []);
+      }
+    } catch (err) {
+      console.error("Admin fetch failed", err);
+    }
   };
 
-  const handleAnalyze = async () => {
-    if (images.length === 0) {
-      alert("Please upload at least one image.");
+  const handleFileChange = (e) => {
+    const selectedFiles = Array.from(e.target.files);
+    if (selectedFiles.length > 2) {
+      setError("Maximum 2 images allowed.");
       return;
     }
-    if (!query) {
-      alert("Please enter a query.");
-      return;
-    }
-    setLoading(true);
-    setError(null);
+    setFiles(selectedFiles);
     setResult(null);
-    setActiveTab('ANSWER');
+    setError('');
+    setPipelineStep(0);
+  };
+
+  const handleAnalyze = async (e) => {
+    e.preventDefault();
+    if (files.length === 0 || !query) {
+      setError('Both image and query are required.');
+      return;
+    }
+
+    setLoading(true);
+    setError('');
+    setResult(null);
+    setPipelineStep(0);
 
     const formData = new FormData();
     formData.append('query', query);
-    formData.append('parameters', '{}');
-    formData.append('benchmark_mode', benchmarkMode);
-    images.forEach(img => {
-      formData.append('files', img);
+    formData.append('benchmark_mode', 'false');
+    files.forEach(file => {
+      formData.append('files', file);
     });
 
     try {
-      const res = await axios.post(`${API_BASE_URL}/analyze`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-        timeout: 60000
+      const res = await fetch(`${API_BASE_URL}/analyze`, {
+        method: 'POST',
+        body: formData,
       });
-      setResult(res.data);
-    } catch (err) {
-      console.error(err);
-      if (err.response) {
-        setError(`Server Error (${err.response.status}): ${JSON.stringify(err.response.data)}`);
-      } else if (err.request) {
-        setError("Network Error: Could not connect to the backend server at 127.0.0.1:8000.");
-      } else {
-        setError(`Request Error: ${err.message}`);
+
+      if (!res.ok) {
+        throw new Error(`HTTP error! status: ${res.status}`);
       }
+
+      const data = await res.json();
+      setResult(data);
+      setPipelineStep(4);
+    } catch (err) {
+      setError(err.message || 'Failed to connect to the analysis gateway.');
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
-  const handleDownloadReport = () => {
+  const handleDownloadReport = async () => {
     if (!result) return;
-    const reportText = `
-SATQUERY AI - MISSION REPORT
-============================
-Timestamp: ${new Date().toISOString()}
+    try {
+      const formData = new FormData();
+      formData.append('query', query);
+      formData.append('benchmark_mode', 'false');
+      files.forEach(file => formData.append('files', file));
+      
+      const res = await fetch(`${API_BASE_URL}/report`, {
+        method: 'POST',
+        body: formData,
+      });
+      
+      if (!res.ok) throw new Error('Report generation failed');
+      
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `SatQuery_Report_${new Date().getTime()}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+    } catch(err) {
+      alert("Failed to download report: " + err.message);
+    }
+  };
 
-[ MISSION DETAILS ]
-Task: ${result.task}
-Status: ${result.status}
-Query: ${query}
-Answer: ${result.answer}
-Confidence: ${result.confidence ?? 'N/A'}
-
-[ PROVENANCE ]
-${result.provenance ? JSON.stringify(result.provenance, null, 2) : 'None'}
-
-[ EXECUTION TRACE ]
-${result.execution_trace.join('\n')}
-
-[ VALIDATION ]
-${JSON.stringify(result.validation, null, 2)}
-    `.trim();
+  const renderBoundingBoxes = () => {
+    if (!result || !result.evidence || files.length === 0) return null;
     
-    const blob = new Blob([reportText], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'SatQuery_Mission_Report.txt';
-    a.click();
-    URL.revokeObjectURL(url);
+    // We only render bounding boxes over the FIRST image for now
+    const groundings = result.evidence.filter(e => e.region != null);
+    if (groundings.length === 0) return null;
+
+    return (
+      <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none' }}>
+        {groundings.map((g, idx) => {
+          const [xmin, ymin, xmax, ymax] = g.region;
+          // Note: The coordinates from the model are usually absolute pixel values. 
+          // We need to render them relative to the image container.
+          // This requires some CSS tricks or normalized coordinates, but since we are wrapping the img in a relative container,
+          // we can use percentages if we knew the original img dimensions, OR we just use absolute if the image is unscaled.
+          // For simplicity in UI scaling, we assume the object detection model scaled to the input size or we just pass raw pixels 
+          // and let the browser scale it if we use standard img sizes.
+          // GroundingDino outputs absolute pixels. If the image is scaled by CSS, we need percentage.
+          // Let's do a simple inline SVG overlay.
+          return (
+            <svg key={idx} style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%' }} viewBox="0 0 1000 1000" preserveAspectRatio="none">
+              {/* Since we don't have original image width/height in frontend state easily without loading it, 
+                  we just use the visual_output or directly rely on the backend returning normalized boxes.
+                  For now, we'll just style a div with percentage if possible, or skip complex scaling for demo. 
+                  Actually, GroundingDino outputs absolute pixel coordinates. */}
+            </svg>
+          );
+        })}
+      </div>
+    );
   };
 
-  const handleSuggestion = (text) => {
-    setQuery(text);
+  const removeFile = (index) => {
+    setFiles(files.filter((_, i) => i !== index));
   };
 
-  const isModelUnavailable = result && result.status === 'MODEL_UNAVAILABLE';
+  const isModelUnavailable = result?.status === 'MODEL_UNAVAILABLE';
+  const hasConflict = result?.conflict === true;
 
   return (
     <div className="app-container">
-      <div className="orbit-bg"></div>
-      
-      <header className="top-bar">
-        <div className="logo-area">
-          <Satellite className="logo-icon" size={32} />
-          <div>
-            <h1>SIH RSICD CAPTIONING</h1>
-            <span className="subtitle">BLIP + LoRA Remote Sensing Model</span>
-          </div>
+      <nav className="top-nav glass">
+        <div className="nav-brand">
+          <Satellite size={24} className="text-cyan" />
+          <h1>SatQuery AI</h1>
         </div>
-        <div className="nav-area">
-          <button className={`nav-btn ${currentView === 'workspace' ? 'active' : ''}`} onClick={() => setCurrentView('workspace')}>MISSION WORKSPACE</button>
-          <button className={`nav-btn ${currentView === 'evaluations' ? 'active' : ''}`} onClick={() => setCurrentView('evaluations')}>EVALUATION BENCHMARKS</button>
+        <div className="nav-links">
+          <button className={`nav-btn ${activeTab === 'mission' ? 'active' : ''}`} onClick={() => setActiveTab('mission')}>
+            <Search size={16} /> Mission Control
+          </button>
+          <button className={`nav-btn ${activeTab === 'admin' ? 'active' : ''}`} onClick={() => setActiveTab('admin')}>
+            <BarChart2 size={16} /> Admin Dashboard
+          </button>
         </div>
-        <div className="system-status">
-          <div className="status-indicator">
-            {health ? <Server className="text-cyan" size={18} /> : <AlertCircle className="text-red" size={18} />}
-            <span className={health ? 'text-cyan' : 'text-red'}>
-              {health ? 'SYSTEM ONLINE' : 'GATEWAY OFFLINE'}
-            </span>
-          </div>
-        </div>
-      </header>
+      </nav>
 
-      {currentView === 'workspace' ? (
-      <main className="workspace">
+      {activeTab === 'mission' ? (
+      <main className="main-content">
         
         {/* LEFT PANEL: INPUT */}
         <section className="panel left-panel glass">
           <div className="panel-header">
-            <UploadCloud size={20} />
-            <h2>INPUT WORKSPACE</h2>
+            <Upload size={20} />
+            <h2>DATA INGESTION</h2>
           </div>
           
-          <div className="upload-section">
-            <div {...getRootProps()} className={`dropzone ${isDragActive ? 'active' : ''}`}>
-              <input {...getInputProps()} />
-              <UploadCloud size={32} className="drop-icon" />
-              <p>Drag & drop up to 2 images here</p>
-              <small>GeoTIFF, TIFF, PNG, JPEG</small>
+          <form onSubmit={handleAnalyze} className="input-form">
+            <div className="file-upload-container">
+              <label htmlFor="file-upload" className="file-upload-label">
+                <FileImage size={32} className="text-muted" />
+                <span>Select up to 2 satellite images (GeoTIFF, PNG, JPEG)</span>
+                <span className="text-small text-muted">For change detection, upload 2 images</span>
+              </label>
+              <input id="file-upload" type="file" multiple accept=".tif,.tiff,.png,.jpg,.jpeg" onChange={handleFileChange} style={{display: 'none'}} />
             </div>
 
-            <div className="image-preview-container">
-              {images.map((img, idx) => (
-                <div key={idx} className="image-card">
-                  <div className="img-thumbnail" style={{backgroundImage: `url(${img.preview})`}}>
-                    <button className="remove-btn" onClick={(e) => { e.stopPropagation(); removeImage(idx); }}>
-                      <X size={14} />
-                    </button>
+            {files.length > 0 && (
+              <div className="file-list">
+                {files.map((f, i) => (
+                  <div key={i} className="file-item">
+                    <FileImage size={16} />
+                    <span className="filename">{f.name}</span>
+                    <button type="button" className="icon-btn text-muted" onClick={() => removeFile(i)}><X size={16}/></button>
                   </div>
-                  <div className="img-info">
-                    <span className="img-name" title={img.name}>{img.name}</span>
-                    <span className="img-size">{(img.size / 1024 / 1024).toFixed(2)} MB</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-            {images.length === 2 && (
-              <div className="mode-selector">
-                <span className="badge badge-info">Multi-Image Mode</span>
+                ))}
               </div>
             )}
-          </div>
 
-          <div className="query-box" style={{marginTop: '20px'}}>
-            <label className="input-label">Natural Language Query</label>
-            <textarea
-              className="query-input"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="E.g., What is the dominant land cover?"
-              rows={3}
-            />
-            <div className="suggestions" style={{marginTop: '10px', marginBottom: '15px'}}>
-              <button className="pill-btn" onClick={() => handleSuggestion("Highlight the water body")}>Grounding</button>
-              <button className="pill-btn" onClick={() => handleSuggestion("What changed between these two dates?")}>Change</button>
-            </div>
-          </div>
+            {files.length > 0 && (
+              <div className="image-preview-container" ref={imageContainerRef} style={{position: 'relative'}}>
+                <img src={URL.createObjectURL(files[0])} alt="Primary" className="image-preview" />
+                {renderBoundingBoxes()}
+                {files.length > 1 && (
+                   <img src={URL.createObjectURL(files[1])} alt="Secondary" className="image-preview" style={{marginTop: '10px'}}/>
+                )}
+              </div>
+            )}
 
-          <div className="settings-section" style={{marginTop: '0', marginBottom: '20px'}}>
-            <label className="checkbox-label">
-              <input 
-                type="checkbox" 
-                checked={benchmarkMode} 
-                onChange={e => setBenchmarkMode(e.target.checked)} 
+            <div className="query-container">
+              <label>Mission Query</label>
+              <textarea 
+                value={query} 
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="e.g. What type of land cover is visible? | Where is the water body? | Describe the scene."
+                rows={3}
               />
-              <span className="checkbox-text">Benchmark Mode (Allow PNG/JPEG)</span>
-            </label>
-          </div>
-
-          <button 
-            className={`analyze-btn ${loading ? 'loading' : ''}`} 
-            onClick={handleAnalyze} 
-            disabled={loading || images.length === 0}
-          >
-            {loading ? <Activity className="spin" size={20} /> : <Search size={20} />}
-            <span>{loading ? 'ANALYZING...' : 'EXECUTE MISSION'}</span>
-          </button>
-
-          {error && (
-            <div className="error-box">
-              <AlertCircle size={20} />
-              <p>{error}</p>
             </div>
-          )}
+
+            {error && <div className="error-banner"><AlertCircle size={16}/> {error}</div>}
+
+            <button type="submit" className="primary-btn" disabled={loading || files.length === 0}>
+              {loading ? <span className="spin"><Activity size={18}/></span> : <Search size={18} />}
+              {loading ? 'PROCESSING...' : 'EXECUTE MISSION'}
+            </button>
+          </form>
         </section>
 
-        {/* CENTER PANEL: RESULT */}
+        {/* CENTER PANEL: RESULTS */}
         <section className="panel center-panel glass">
           <div className="panel-header">
             <Search size={20} />
-            <h2>{result ? `Task: ${result.task.toUpperCase()} | Specialist: ${result.provenance?.model || 'Unknown'} | Device: ${result.provenance?.device || 'CPU'}` : 'AWAITING MISSION'}</h2>
+            <h2>{result ? `Task: ${result.task.toUpperCase()} | Model: ${result.provenance?.model || 'Unknown'}` : 'AWAITING MISSION'}</h2>
           </div>
           
           {!result && !loading && (
@@ -306,9 +275,12 @@ ${JSON.stringify(result.validation, null, 2)}
           {result && (
             <div className="results-container slide-up" style={{marginTop: 0, borderTop: 'none', paddingTop: 0}}>
               <div className="results-header" style={{flexDirection: 'column', alignItems: 'flex-start', gap: '10px'}}>
-                <span className={`badge ${isModelUnavailable ? 'badge-warn' : result.status === 'SUCCESS' ? 'badge-success' : 'badge-warn'}`} style={{fontSize: '14px', padding: '6px 12px'}}>
+                <span className={`badge ${result.status === 'SUCCESS' || result.status === 'VERIFIED' ? 'badge-success' : 'badge-warn'}`} style={{fontSize: '14px', padding: '6px 12px'}}>
                   {result.status}
                 </span>
+                {hasConflict && (
+                  <span className="badge badge-warn" style={{fontSize: '14px', padding: '6px 12px'}}>CONFLICT DETECTED</span>
+                )}
               </div>
 
               {isModelUnavailable && (
@@ -316,7 +288,17 @@ ${JSON.stringify(result.validation, null, 2)}
                   <AlertCircle size={24} className="text-yellow" />
                   <div>
                     <h4>Specialist Model Unavailable</h4>
-                    <p>The gateway routed the task successfully, but the underlying specialist model endpoint for <b>{result.task}</b> is offline or unconfigured.</p>
+                    <p>The gateway routed the task successfully, but the underlying specialist model endpoint is offline or unconfigured.</p>
+                  </div>
+                </div>
+              )}
+
+              {result.abstention_reason && (
+                <div className="offline-warning" style={{backgroundColor: 'rgba(255, 100, 100, 0.1)', borderColor: '#ff4444'}}>
+                  <AlertCircle size={24} className="text-red" />
+                  <div>
+                    <h4>Model Abstained</h4>
+                    <p>{result.abstention_reason}</p>
                   </div>
                 </div>
               )}
@@ -344,19 +326,27 @@ ${JSON.stringify(result.validation, null, 2)}
 
               {result.visual_output && (
                  <div className="content-card visual-card" style={{marginTop: '20px'}}>
-                   <h4>Spatial Evidence</h4>
+                   <h4>Spatial Evidence Overlay</h4>
                    <img src={result.visual_output} alt="Visual Output" className="visual-evidence-img" />
                  </div>
               )}
 
               <div className="content-card evidence-card" style={{marginTop: '20px'}}>
-                <h4>Supporting Evidence</h4>
+                <h4>Structured Evidence</h4>
                 {result.evidence?.length > 0 ? (
                   <ul className="evidence-list">
-                    {result.evidence.map((e, i) => <li key={i}><CheckCircle2 size={16} /> {e}</li>)}
+                    {result.evidence.map((e, i) => (
+                      <li key={i} style={{display: 'flex', flexDirection: 'column', gap: '4px'}}>
+                        <div style={{display: 'flex', alignItems: 'center', gap: '8px'}}>
+                          <CheckCircle2 size={16} /> <strong>{e.claim || 'Evidence'}</strong>
+                        </div>
+                        <span className="text-muted" style={{marginLeft: '24px'}}>{e.evidence}</span>
+                        <span className="text-muted text-small" style={{marginLeft: '24px'}}>Status: {e.status} | Modality: {e.modality}</span>
+                      </li>
+                    ))}
                   </ul>
                 ) : (
-                  <p className="empty-state">No textual evidence provided.</p>
+                  <p className="empty-state">No structural evidence generated.</p>
                 )}
               </div>
               
@@ -369,19 +359,15 @@ ${JSON.stringify(result.validation, null, 2)}
           )}
         </section>
 
-        {/* RIGHT PANEL: AGENT EXECUTION */}
+        {/* RIGHT PANEL: AGENT EXECUTION (Simple Dashboard) */}
         <section className="panel right-panel glass">
           <div className="panel-header">
             <Layers size={20} />
-            <h2>AGENT EXECUTION</h2>
-          </div>
-
-          <div className="agent-status-box">
-             <p className="info-row"><span>Detected Task:</span> <strong className="text-cyan">{result ? result.task : 'N/A'}</strong></p>
+            <h2>PIPELINE EXECUTION</h2>
           </div>
           
           <div className="pipeline-visualizer" style={{marginTop: '20px', marginBottom: '20px'}}>
-            {['VALIDATION', 'TASK ROUTING', 'SPECIALIST MODEL', 'FINAL RESPONSE'].map((step, idx) => (
+            {['VALIDATION', 'UNDERSTANDING & ROUTING', 'EVIDENCE EXTRACTION', 'VERIFICATION & CONFLICT'].map((step, idx) => (
               <div key={idx} className={`pipeline-step ${pipelineStep > idx ? 'completed' : pipelineStep === idx && loading ? 'active' : 'pending'}`}>
                 <div className="step-node">
                   {pipelineStep > idx ? <CheckCircle2 size={16} /> : <div className="dot"></div>}
@@ -404,65 +390,91 @@ ${JSON.stringify(result.validation, null, 2)}
                   ))}
                 </ul>
               </div>
-
-              <div className="content-card small-card" style={{marginTop: '15px'}}>
-                <h4>Validation</h4>
-                <pre className="code-block mini">{JSON.stringify(result.validation, null, 2)}</pre>
-              </div>
-
-              <div className="content-card small-card" style={{marginTop: '15px'}}>
-                <h4>Provenance</h4>
-                {result.provenance ? (
-                  <pre className="code-block mini">{JSON.stringify(result.provenance, null, 2)}</pre>
-                ) : (
-                  <p className="empty-state">N/A</p>
-                )}
-              </div>
             </div>
           )}
         </section>
 
       </main>
       ) : (
-      <main className="evaluations-view">
-        <div className="eval-header">
-          <h2>BENCHMARK EVALUATIONS</h2>
-          <p>Scientific integrity requires real data. Fabricated scores are strictly prohibited.</p>
-        </div>
-        <div className="eval-grid">
-          {evaluations.map((ev, idx) => (
-            <div key={idx} className="eval-card glass">
-              <div className="eval-card-header">
-                <h3>{ev.benchmark_name}</h3>
-                <span className={`badge ${ev.status === 'NOT_EVALUATED' || ev.status === 'DATASET_NOT_AVAILABLE' ? 'badge-warn' : 'badge-success'}`}>
-                  {ev.status}
-                </span>
+      <main className="admin-view" style={{display: 'flex', gap: '20px', padding: '20px'}}>
+        
+        {/* Admin Left: Stats & Eval */}
+        <div style={{flex: 1, display: 'flex', flexDirection: 'column', gap: '20px'}}>
+          <div className="content-card glass">
+            <h2>System Statistics</h2>
+            {adminStats ? (
+              <div style={{marginTop: '20px'}}>
+                <p><strong>Total Requests:</strong> {adminStats.total_requests}</p>
+                <p><strong>Total Conflicts Detected:</strong> {adminStats.conflicts}</p>
+                <h4 style={{marginTop: '15px'}}>Task Distribution:</h4>
+                <ul>
+                  {Object.entries(adminStats.task_distribution).map(([k, v]) => (
+                    <li key={k}>{k}: {v}</li>
+                  ))}
+                </ul>
+                <h4 style={{marginTop: '15px'}}>Status Distribution:</h4>
+                <ul>
+                  {Object.entries(adminStats.status_distribution).map(([k, v]) => (
+                    <li key={k}>{k}: {v}</li>
+                  ))}
+                </ul>
               </div>
-              <p className="eval-desc">{ev.description}</p>
-              
-              <div className="eval-meta">
-                <strong>Expected Format:</strong> {ev.expected_format}
-              </div>
-              
-              <div className="eval-meta">
-                <strong>Configured Path:</strong> {ev.dataset_path}
-              </div>
+            ) : (
+              <p>Loading stats...</p>
+            )}
+          </div>
 
-              {ev.metrics && (
-                <div className="eval-metrics">
-                  <h4>Metrics:</h4>
-                  <pre className="code-block mini">{JSON.stringify(ev.metrics, null, 2)}</pre>
+          <div className="content-card glass">
+            <h2>Benchmark Evaluations</h2>
+            <div className="eval-grid" style={{gridTemplateColumns: '1fr', marginTop: '20px'}}>
+              {evaluations.map((ev, idx) => (
+                <div key={idx} className="eval-card" style={{border: '1px solid #333', background: '#0a0a0a'}}>
+                  <div className="eval-card-header">
+                    <h3>{ev.benchmark_name}</h3>
+                    <span className={`badge ${ev.status === 'NOT_EVALUATED' || ev.status === 'NOT_CONFIGURED' ? 'badge-warn' : 'badge-success'}`}>
+                      {ev.status}
+                    </span>
+                  </div>
+                  <p className="eval-desc text-small text-muted">{ev.description}</p>
                 </div>
-              )}
+              ))}
             </div>
-          ))}
-          
-          {evaluations.length === 0 && (
-             <div className="empty-state-container">
-               <Activity className="spin text-cyan" size={48} style={{marginBottom: '20px'}}/>
-               <p className="text-cyan">Fetching benchmark statuses...</p>
-             </div>
-          )}
+          </div>
+        </div>
+
+        {/* Admin Right: History */}
+        <div className="content-card glass" style={{flex: 2}}>
+          <h2>Mission History</h2>
+          <div style={{marginTop: '20px', maxHeight: '70vh', overflowY: 'auto'}}>
+            {adminHistory.length > 0 ? (
+              <table style={{width: '100%', textAlign: 'left', borderCollapse: 'collapse'}}>
+                <thead>
+                  <tr style={{borderBottom: '1px solid #333'}}>
+                    <th style={{padding: '10px'}}>Time</th>
+                    <th style={{padding: '10px'}}>Query</th>
+                    <th style={{padding: '10px'}}>Task</th>
+                    <th style={{padding: '10px'}}>Status</th>
+                    <th style={{padding: '10px'}}>Conflict</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {adminHistory.map((h, i) => (
+                    <tr key={i} style={{borderBottom: '1px solid #222'}}>
+                      <td style={{padding: '10px', fontSize: '12px'}}>{new Date(h.timestamp).toLocaleString()}</td>
+                      <td style={{padding: '10px', fontSize: '14px'}}>{h.query}</td>
+                      <td style={{padding: '10px', fontSize: '12px', color: '#00d4ff'}}>{h.task}</td>
+                      <td style={{padding: '10px', fontSize: '12px'}}>
+                        <span className={`badge ${h.status.includes('SUCCESS') || h.status.includes('VERIFIED') ? 'badge-success' : 'badge-warn'}`}>{h.status}</span>
+                      </td>
+                      <td style={{padding: '10px', fontSize: '12px'}}>{h.conflict ? 'Yes' : 'No'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : (
+              <p>No history recorded yet.</p>
+            )}
+          </div>
         </div>
       </main>
       )}

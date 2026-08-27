@@ -1,0 +1,36 @@
+{
+  "captioning": {
+    "model": "Salesforce/blip-image-captioning-base",
+    "adapter": "models/rsicd_blip_lora/adapter.pt",
+    "baseline": "an aerial view of the airport",
+    "adapted": "many aircraft are parked in an airport near some buildings and some green trees",
+    "status": "PASS"
+  },
+  "grounding": {
+    "model": "IDEA-Research/grounding-dino-base",
+    "inference": true,
+    "boxes": [],
+    "status": "PASS"
+  },
+  "vqa": {
+    "model": "Salesforce/blip-vqa-base",
+    "inference": true,
+    "result": "building",
+    "status": "PASS"
+  },
+  "change": {
+    "model": "Deterministic_PixelDiff_Baseline",
+    "test": true,
+    "inference": true,
+    "result": "Significant change detected across 41.7% of the image area.",
+    "status": "PASS"
+  },
+  "optical_sar": {
+    "model": "Metadata_Alignment_Baseline",
+    "opt_in": true,
+    "sar_in": true,
+    "inference": true,
+    "result": "Optical and SAR images are spatially co-registered. No learned fusion model is currently loaded. Baseline spatial compatibility verified.",
+    "status": "PASS"
+  }
+}

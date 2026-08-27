@@ -1,0 +1,52 @@
+[
+  {
+    "task": "vqa",
+    "input_image": "datasets/rsicd/images/image_1.jpg",
+    "query": "How many trees are there?",
+    "model": "Salesforce/blip-vqa-base",
+    "real_inference": true,
+    "status": "SUCCESS",
+    "output": "1",
+    "duration": "16.70s"
+  },
+  {
+    "task": "captioning",
+    "input_image": "datasets/rsicd/images/image_2.jpg",
+    "query": "Caption this image",
+    "model": "Salesforce/blip-image-captioning-base",
+    "real_inference": true,
+    "status": "SUCCESS",
+    "output": "the airport is shown in this image",
+    "duration": "10.25s"
+  },
+  {
+    "task": "grounding",
+    "input_image": "datasets/rsicd/images/image_1.jpg",
+    "query": "Find all trees",
+    "model": "IDEA-Research/grounding-dino-base",
+    "real_inference": true,
+    "status": "SUCCESS",
+    "output": "Detected objects: trees (0.30) at [87.39546203613281, 61.81891632080078, 135.91900634765625, 140.81082153320312]",
+    "duration": "16.81s"
+  },
+  {
+    "task": "change_analysis",
+    "input_image": "image_1, image_2",
+    "query": "What changed?",
+    "model": "Deterministic_PixelDiff_Baseline",
+    "real_inference": true,
+    "status": "SUCCESS",
+    "output": "Significant change detected across 73.4% of the image area.",
+    "duration": "0.06s"
+  },
+  {
+    "task": "optical_sar",
+    "input_image": "image_1, image_2",
+    "query": "compare optical and sar structure",
+    "model": "Metadata_Alignment_Baseline",
+    "real_inference": true,
+    "status": "SUCCESS",
+    "output": "Optical and SAR images are spatially co-registered. No learned fusion model is currently loaded. Baseline spatial compatibility verified.",
+    "duration": "0.01s"
+  }
+]

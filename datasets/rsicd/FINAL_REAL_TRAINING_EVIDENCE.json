@@ -1,0 +1,64 @@
+{
+  "experiment": "RSICD BLIP LoRA Remote Sensing Adaptation",
+  "base_model": "Salesforce/blip-image-captioning-base",
+  "dataset": "arampacha/rsicd",
+  "training": {
+    "train_samples": 2000,
+    "validation_samples": 500,
+    "epochs": 3,
+    "batch_size": 4,
+    "gradient_accumulation": 4,
+    "learning_rate": 0.0001,
+    "gpu": "Tesla T4",
+    "trainable_parameters": 589824,
+    "lora_modules": 48
+  },
+  "training_history": [
+    {
+      "epoch": 1,
+      "train_loss": 6.8226,
+      "validation_loss": 6.2482
+    },
+    {
+      "epoch": 2,
+      "train_loss": 5.8473,
+      "validation_loss": 5.8645
+    },
+    {
+      "epoch": 3,
+      "train_loss": 5.6354,
+      "validation_loss": 5.749
+    }
+  ],
+  "evaluation": {
+    "evaluation_samples": 100,
+    "baseline": {
+      "bleu": 0.0,
+      "rouge_l": 0.110373
+    },
+    "adapted_lora": {
+      "bleu": 0.323397,
+      "rouge_l": 0.586496
+    },
+    "improvement": {
+      "bleu_delta": 0.323397,
+      "rouge_l_delta": 0.476123
+    },
+    "prediction_changes": 100,
+    "prediction_change_rate": 1.0,
+    "mean_absolute_logit_difference": 2.295305,
+    "maximum_absolute_logit_difference": 2.405027
+  },
+  "verification": {
+    "lora_gradients_nonzero": true,
+    "lora_weights_updated": true,
+    "adapted_predictions_different": true,
+    "logits_changed": true,
+    "training_completed": true,
+    "evaluation_completed": true
+  },
+  "artifacts": {
+    "adapter": "/kaggle/working/rsicd_blip_lora/adapter.pt",
+    "history": "/kaggle/working/rsicd_training_history.json"
+  }
+}

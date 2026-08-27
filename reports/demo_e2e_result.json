@@ -1,0 +1,45 @@
+{
+  "task": "captioning",
+  "answer": "many aircraft are parked in an airport near some buildings and some green trees",
+  "status": "SUCCESS",
+  "confidence": null,
+  "evidence": [
+    "Caption generated locally using BLIP on cpu. Adapter loaded: True"
+  ],
+  "visual_output": null,
+  "execution_trace": [
+    "VALIDATED: image_0.jpg (Format: benchmark_rgb)",
+    "ROUTER: Selected task 'captioning'.",
+    "EXECUTION: Received status SUCCESS"
+  ],
+  "provenance": {
+    "model": "Salesforce/blip-image-captioning-base",
+    "model_version": "1.0",
+    "adaptation_dataset": "arampacha/rsicd",
+    "adaptation_method": "Native PyTorch LoRA",
+    "remote_sensing_adapted": true,
+    "inference_timestamp": "2026-08-26T12:57:41.504049Z",
+    "input_filenames": [
+      "image_0.jpg"
+    ],
+    "input_modalities": [
+      "optical_imagery"
+    ],
+    "crs": null,
+    "geospatial_evidence_generated": false
+  },
+  "validation": [
+    {
+      "valid": true,
+      "reason": null,
+      "crs": null,
+      "transform": null,
+      "bands": null,
+      "width": 224,
+      "height": 224,
+      "modality": "unknown",
+      "acquisition_time": null,
+      "file_format": "benchmark_rgb"
+    }
+  ]
+}

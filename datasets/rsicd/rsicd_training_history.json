@@ -1,0 +1,29 @@
+{
+  "history": [
+    {
+      "epoch": 1,
+      "train_loss": 6.822568587303161,
+      "validation_loss": 6.248212532043457
+    },
+    {
+      "epoch": 2,
+      "train_loss": 5.847306811332703,
+      "validation_loss": 5.864510606765747
+    },
+    {
+      "epoch": 3,
+      "train_loss": 5.635398678779602,
+      "validation_loss": 5.748995456695557
+    }
+  ],
+  "train_samples": 2000,
+  "validation_samples": 500,
+  "epochs": 3,
+  "batch_size": 4,
+  "gradient_accumulation": 4,
+  "learning_rate": 0.0001,
+  "trainable_parameters": 589824,
+  "lora_modules": 48,
+  "gpu": "Tesla T4",
+  "training_time_seconds": 525.9432725906372
+}
