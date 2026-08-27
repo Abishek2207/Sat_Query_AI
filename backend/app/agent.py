@@ -42,7 +42,13 @@ def route_node(state: AgentState):
         elif any(kw in query for kw in ["change", "difference"]):
             task = "change_analysis"
     elif img_count == 1:
-        if any(kw in query for kw in ["classify", "land cover", "class", "type", "euro"]):
+        lc_keywords = [
+            "classify", "classification", "land cover", "land-cover", 
+            "land surface", "land type", "terrain type", "area type", 
+            "geographic land", "what type of area", "what kind of land", 
+            "what kind of area", "identify the land"
+        ]
+        if any(kw in query for kw in lc_keywords):
             task = "land_cover_classification"
         elif any(kw in query for kw in ["highlight", "locate", "where", "find"]):
             task = "grounding"
