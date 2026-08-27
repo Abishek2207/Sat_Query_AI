@@ -60,9 +60,9 @@ def get_evaluations():
     return {"evaluations": results}
 
 @app.post("/evaluations/{dataset_id}/run")
-def trigger_evaluation(dataset_id: str, limit: int = 5):
-    from .dataset_registry import run_smoke_evaluation
-    return run_smoke_evaluation(dataset_id, limit)
+async def trigger_evaluation(dataset_id: str, limit: int = 5):
+    from .evaluations.runner import run_benchmark_evaluation
+    return await run_benchmark_evaluation(dataset_id, limit)
 
 @app.get("/admin/stats")
 def admin_stats():

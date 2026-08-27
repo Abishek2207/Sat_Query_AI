@@ -428,30 +428,54 @@ function App() {
             <h2>Benchmark Evaluations</h2>
             <div className="eval-grid" style={{gridTemplateColumns: '1fr', marginTop: '20px'}}>
               {evaluations.map((ev, idx) => (
-                <div key={idx} className="eval-card" style={{border: '1px solid #333', background: '#0a0a0a'}}>
+                <div key={idx} className="eval-card" style={{border: '1px solid #333', background: '#0a0a0a', padding: '15px'}}>
                   <div className="eval-card-header">
                     <h3>{ev.benchmark_name}</h3>
                     <span className={`badge ${ev.status === 'NOT_AVAILABLE' ? 'badge-warn' : 'badge-success'}`}>
-                      {ev.status}
+                      {ev.evalStatus || ev.status}
                     </span>
                   </div>
                   <p className="eval-desc text-small text-muted">{ev.description}</p>
                   <p className="eval-desc text-small text-muted">Path: {ev.dataset_path}</p>
                   
-                  {ev.status === 'READY' && (
+                  {ev.evalResult && (
+                    <div style={{marginTop: '10px', padding: '10px', background: '#111'}}>
+                      <p><strong>Score:</strong> {ev.evalResult.score}</p>
+                      <p><strong>Evaluated Samples:</strong> {ev.evalResult.evaluated_samples}</p>
+                      <p><strong>Metric:</strong> {ev.evalResult.metric}</p>
+                      <p className="text-small text-muted">Checksum/Version: {ev.evalResult.provenance?.dataset_version || 'N/A'}</p>
+                    </div>
+                  )}
+                  
+                  {ev.status === 'READY' && ev.evalStatus !== 'RUNNING' && (
                     <div style={{marginTop: '15px'}}>
                       <button 
                         className="primary-btn" 
                         onClick={async () => {
-                          const res = await fetch(`${API_BASE_URL}/evaluations/${ev.dataset_id}/run?limit=5`, {method: 'POST'});
-                          const data = await res.json();
-                          alert(`Evaluation Result for ${data.dataset}:\nScore: ${data.score}\nEvaluated Samples: ${data.evaluated_samples}\nGenerated at: ${data.generated_at}`);
+                          const updated = [...evaluations];
+                          updated[idx].evalStatus = 'RUNNING';
+                          setEvaluations(updated);
+                          
+                          try {
+                            const res = await fetch(`${API_BASE_URL}/evaluations/${ev.dataset_id}/run?limit=5`, {method: 'POST'});
+                            const data = await res.json();
+                            
+                            const finished = [...evaluations];
+                            finished[idx].evalStatus = 'COMPLETED';
+                            finished[idx].evalResult = data;
+                            setEvaluations(finished);
+                          } catch (err) {
+                            const failed = [...evaluations];
+                            failed[idx].evalStatus = 'FAILED';
+                            setEvaluations(failed);
+                          }
                         }}
                       >
                         RUN REAL EVALUATION (Smoke Test)
                       </button>
                     </div>
                   )}
+                  {ev.evalStatus === 'RUNNING' && <p className="text-accent" style={{marginTop: '10px'}}>Running inference...</p>}
                 </div>
               ))}
             </div>

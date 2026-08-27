@@ -79,30 +79,4 @@ def get_dataset_registry() -> List[Dict[str, Any]]:
         
     return registry
 
-def run_smoke_evaluation(dataset_id: str, limit: int = 5) -> Dict[str, Any]:
-    status = check_dataset_status(dataset_id)
-    if status["status"] != "READY":
-        return {
-            "dataset": dataset_id,
-            "split": "smoke",
-            "reference_available": False,
-            "evaluated_samples": 0,
-            "metric": "accuracy",
-            "score": 0.0,
-            "generated_at": datetime.utcnow().isoformat() + "Z",
-            "message": f"Dataset {dataset_id} is not available."
-        }
-        
-    # Simulate a real evaluation using the actual files found (if implemented fully, would call the model)
-    # For now, we perform a deterministic stub that proves the dataset is loaded.
-    from datetime import datetime
-    return {
-        "dataset": dataset_id,
-        "split": "smoke",
-        "reference_available": True,
-        "evaluated_samples": min(limit, status["samples"] if status["samples"] > 0 else limit),
-        "metric": "NOT_IMPLEMENTED",
-        "score": "NOT_IMPLEMENTED",
-        "generated_at": datetime.utcnow().isoformat() + "Z",
-        "message": "Smoke evaluation triggered, but full metric loop is NOT_IMPLEMENTED yet to prevent fabricating scores."
-    }
+# Evaluation runner logic has moved to backend/app/evaluations/runner.py
