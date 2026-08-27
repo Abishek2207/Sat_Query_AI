@@ -431,11 +431,27 @@ function App() {
                 <div key={idx} className="eval-card" style={{border: '1px solid #333', background: '#0a0a0a'}}>
                   <div className="eval-card-header">
                     <h3>{ev.benchmark_name}</h3>
-                    <span className={`badge ${ev.status === 'NOT_EVALUATED' || ev.status === 'NOT_CONFIGURED' ? 'badge-warn' : 'badge-success'}`}>
+                    <span className={`badge ${ev.status === 'NOT_AVAILABLE' ? 'badge-warn' : 'badge-success'}`}>
                       {ev.status}
                     </span>
                   </div>
                   <p className="eval-desc text-small text-muted">{ev.description}</p>
+                  <p className="eval-desc text-small text-muted">Path: {ev.dataset_path}</p>
+                  
+                  {ev.status === 'READY' && (
+                    <div style={{marginTop: '15px'}}>
+                      <button 
+                        className="primary-btn" 
+                        onClick={async () => {
+                          const res = await fetch(`${API_BASE_URL}/evaluations/${ev.dataset_id}/run?limit=5`, {method: 'POST'});
+                          const data = await res.json();
+                          alert(`Evaluation Result for ${data.dataset}:\nScore: ${data.score}\nEvaluated Samples: ${data.evaluated_samples}\nGenerated at: ${data.generated_at}`);
+                        }}
+                      >
+                        RUN REAL EVALUATION (Smoke Test)
+                      </button>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

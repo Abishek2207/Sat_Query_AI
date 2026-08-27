@@ -42,25 +42,27 @@ def health_check():
 
 @app.get("/evaluations")
 def get_evaluations():
-    import os
-    from pathlib import Path
-    benchmarks = ["vrsbench", "rsvqa", "cdvqa", "isro_sac"]
+    from .dataset_registry import get_dataset_registry
+    registry = get_dataset_registry()
     results = []
-    for b in benchmarks:
-        path = Path(f"evaluation/{b}/results.json")
-        if path.exists():
-            with open(path, "r", encoding="utf-8") as f:
-                results.append(json.load(f))
-        else:
-            results.append({
-                "benchmark_name": b.upper(),
-                "status": "NOT_CONFIGURED",
-                "metrics": None,
-                "expected_format": "Unknown",
-                "dataset_path": "Unknown",
-                "description": "Dataset unavailable / not connected."
-            })
+    
+    for ds in registry:
+        results.append({
+            "benchmark_name": ds["name"],
+            "dataset_id": ds["dataset_id"],
+            "status": ds["status"],
+            "samples": ds["samples"],
+            "metrics": None,
+            "expected_format": "JSON/Images",
+            "dataset_path": f"datasets/{ds['dataset_id']}",
+            "description": f"Tasks: {', '.join(ds['task_types'])}"
+        })
     return {"evaluations": results}
+
+@app.post("/evaluations/{dataset_id}/run")
+def trigger_evaluation(dataset_id: str, limit: int = 5):
+    from .dataset_registry import run_smoke_evaluation
+    return run_smoke_evaluation(dataset_id, limit)
 
 @app.get("/admin/stats")
 def admin_stats():
