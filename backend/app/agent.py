@@ -3,6 +3,7 @@ from langgraph.graph import StateGraph, END
 from .validator import validate_image_bytes
 from .adapters import call_specialist_model
 from .schemas import ValidationResult, EvidenceItem
+from .evidence_policy import validate_evidence, enforce_abstention, EvidencePolicyError
 
 class AgentState(TypedDict):
     query: str
@@ -92,7 +93,6 @@ def aggregate_node(state: AgentState):
     res = state.get("api_response", {})
     trace = state["trace"]
     
-    # Ensure evidence is a list
     if "evidence" not in res:
         res["evidence"] = []
         
@@ -105,12 +105,19 @@ def verify_node(state: AgentState):
     trace = state["trace"]
     task = state.get("selected_task")
     
+    # Enforce NO_FABRICATION evidence policy
+    try:
+        res["evidence"] = validate_evidence(res.get("evidence", []))
+    except EvidencePolicyError as e:
+        trace.append(f"VERIFICATION FAILED: {str(e)}")
+        res["status"] = "DATA_UNAVAILABLE"
+        return {"api_response": res, "trace": trace}
+        
     if len(res.get("evidence", [])) == 0:
         trace.append("VERIFICATION: No evidence items returned.")
         res["status"] = "DATA_UNAVAILABLE"
         return {"api_response": res, "trace": trace}
         
-    # Check if spatial evidence is present for grounding
     if task == "grounding":
         has_region = any(ev.get("region") is not None for ev in res["evidence"] if isinstance(ev, dict))
         if not has_region:
@@ -124,10 +131,9 @@ def conflict_node(state: AgentState):
     res = state.get("api_response", {})
     trace = state["trace"]
     
-    # Simple check if conflict flag was raised by optical_sar
     if res.get("conflict") is True:
         trace.append("CONFLICT DETECTION: Conflict explicitly flagged by specialist.")
-        res["status"] = "UNCERTAIN"
+        # Uncertainty will be handled in abstain_node
         if res.get("confidence") is not None:
             res["confidence"] = max(0.0, res["confidence"] - 0.4)
             
@@ -142,11 +148,16 @@ def abstain_node(state: AgentState):
         trace.append("ABSTENTION: Abstaining due to missing data/evidence.")
         res["abstention_reason"] = "Required evidence could not be generated."
         res["answer"] = "DATA_UNAVAILABLE: " + res["abstention_reason"]
-        
-    elif res.get("status") == "UNCERTAIN":
-        trace.append("ABSTENTION: Flagging uncertainty due to conflict.")
-        res["abstention_reason"] = "Evidence conflict detected across modalities/sources."
-        
+    else:
+        # Check abstention via policy
+        policy_res = enforce_abstention(res.get("evidence", []), res.get("conflict", False))
+        if policy_res["status"] == "UNCERTAIN":
+            res["status"] = "UNCERTAIN"
+            res["abstention_reason"] = policy_res["abstention_reason"]
+            trace.append(f"ABSTENTION: {policy_res['abstention_reason']}")
+            if not res.get("conflict", False):
+                res["answer"] = "UNCERTAIN: " + policy_res["abstention_reason"]
+
     return {"api_response": res, "trace": trace}
 
 workflow = StateGraph(AgentState)
