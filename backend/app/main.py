@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .schemas import AnalysisResponse
 from .agent import app_graph
-from .registry import MODEL_REGISTRY, get_tool_status
+from .model_registry import MODEL_REGISTRY, get_tool_status
 from .report import generate_pdf_report
 from .history import log_request, get_history, get_stats
 
@@ -39,6 +39,11 @@ def health_check():
         "registry_status": tool_status,
         "baseline_tools": ["change_map", "optical_sar"],
     }
+
+@app.get("/models")
+def get_models():
+    from .model_registry import get_model_registry_list
+    return {"models": get_model_registry_list()}
 
 @app.get("/evaluations")
 def get_evaluations():

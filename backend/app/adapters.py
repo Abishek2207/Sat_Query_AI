@@ -1,6 +1,6 @@
 import httpx
 from typing import List, Dict
-from .registry import MODEL_REGISTRY, get_tool_status
+from .model_registry import MODEL_REGISTRY, get_tool_status
 
 async def call_specialist_model(task: str, query: str, files_data: List[Dict], params: dict) -> dict:
     permitted = MODEL_REGISTRY[task]["permitted_parameters"]
