@@ -3,6 +3,9 @@ __pycache__/
 *.py[cod]
 *.pyo
 *.pyd
+
+# Vercel
+.vercel/
 *.egg-info/
 dist/
 build/

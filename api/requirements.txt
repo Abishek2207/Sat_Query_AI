@@ -1,0 +1,20 @@
+# ============================================================
+#   Sat Query AI — Vercel Serverless Requirements
+# ============================================================
+# NOTE: torch/torchvision are excluded here because they exceed
+# Vercel's 250MB serverless function size limit.
+# The /predict endpoint uses torch at runtime — for full model
+# inference, deploy on Render/Railway/HuggingFace Spaces instead.
+#
+# These lightweight packages power the API framework + spectral
+# index computation (/indices endpoint) without size issues.
+# ============================================================
+
+fastapi==0.115.0
+mangum==0.17.0
+python-multipart==0.0.9
+numpy==2.5.2
+pillow==12.3.0
+pyyaml==6.0.3
+tifffile==2026.8.23
+scipy==1.18.1
