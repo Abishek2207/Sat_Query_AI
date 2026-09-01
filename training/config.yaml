@@ -1,0 +1,67 @@
+# ==============================================================================
+# Remote Sensing AI Configuration File
+# Easy-to-edit settings for Dataset, Model Architecture, and Training Hyperparameters
+# ==============================================================================
+
+# Data Configuration
+data:
+  # Path to dataset root directory (with class subfolders or sample data)
+  data_dir: "data/raw/EuroSAT_Sample"
+  
+  # Image dimensions (Height, Width) input to model
+  image_size: [224, 224]
+  
+  # Number of input channels (3 = RGB, 1 = SAR, 4 = RGB+NIR)
+  target_channels: 3
+  
+  # Batch size for training & validation (use 8-16 for CPU/laptop, 32-64 for GPU)
+  batch_size: 16
+  
+  # Number of worker processes for data loading (0 is best on Windows)
+  num_workers: 0
+  
+  # Train / Validation / Test split fractions (must sum to 1.0)
+  split_ratio: [0.70, 0.15, 0.15]
+  
+  # Random seed for reproducible dataset splits and weight initialization
+  random_seed: 42
+
+# Model Architecture Configuration
+model:
+  # Backbone choices: 'resnet18', 'resnet50', 'mobilenet_v3_small', 'efficientnet_b0', 'custom_cnn'
+  backbone: "resnet18"
+  
+  # Use pretrained ImageNet weights for transfer learning
+  pretrained: true
+  
+  # Number of output classes (e.g. 10 for EuroSAT LULC)
+  num_classes: 10
+  
+  # Dropout rate for regularization (prevents overfitting)
+  dropout_rate: 0.3
+  
+  # Hidden dimension in classification head
+  hidden_dim: 256
+
+# Training Hyperparameters
+training:
+  # Total training epochs
+  epochs: 15
+  
+  # Initial learning rate
+  learning_rate: 0.0005
+  
+  # Optimizer weight decay (L2 regularization)
+  weight_decay: 0.0001
+  
+  # Learning rate scheduler: 'cosine', 'step', or 'plateau'
+  lr_scheduler: "cosine"
+  
+  # Early stopping patience (stops training if val_loss doesn't improve for N epochs)
+  early_stopping_patience: 5
+  
+  # Directory where best and last model checkpoints will be saved
+  save_dir: "checkpoints"
+  
+  # Enable mixed precision (torch.cuda.amp) on compatible GPUs
+  use_mixed_precision: true

@@ -1,0 +1,43 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual environments
+.venv/
+venv/
+env/
+C:/rsenv/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Model checkpoints (large binary files — user should train locally)
+checkpoints/
+
+# Generated reports and outputs
+reports/
+data/raw/
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# Logs
+*.log
+
+# Temp
+*.tmp
+*.bak
