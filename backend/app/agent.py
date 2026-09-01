@@ -15,17 +15,29 @@ class AgentState(TypedDict):
     selected_task: str
     api_response: dict
     trace: List[str]
+    app_state: Any
 
 def validate_node(state: AgentState):
     trace = state.get("trace", [])
     val_results = []
+    
+    # Check single image validations
     for f in state["files"]:
         res = validate_image_bytes(f["filename"], f["bytes"], benchmark_mode=state.get("benchmark_mode", False))
         val_results.append(res)
         if not res.valid:
             trace.append(f"VALIDATION FAILED: {f['filename']} -> {res.reason}")
-            return {"api_response": {"status": "INVALID_INPUT", "answer": "INVALID_INPUT"}, "validation_results": val_results, "trace": trace}
+            return {"api_response": {"status": "INVALID_INPUT", "answer": "VALIDATION_FAILED: " + res.reason}, "validation_results": val_results, "trace": trace}
         trace.append(f"VALIDATED: {f['filename']} (Modality: {res.modality}, Bands: {res.bands})")
+        
+    # Check two-image pair compatibility
+    if len(val_results) == 2:
+        from .validator import validate_image_pair
+        pair_res = validate_image_pair(val_results[0], val_results[1])
+        if not pair_res.valid:
+            trace.append(f"PAIR VALIDATION FAILED: {pair_res.reason}")
+            return {"api_response": {"status": "ABSTAINED", "answer": "ABSTAINED: " + pair_res.reason, "abstention_reason": pair_res.reason}, "validation_results": val_results, "trace": trace}
+            
     return {"validation_results": val_results, "trace": trace}
 
 def understand_node(state: AgentState):
@@ -82,9 +94,9 @@ def route_node(state: AgentState):
     return {"selected_task": task, "trace": trace}
 
 async def execute_node(state: AgentState):
-    if state.get("api_response", {}).get("status") == "INVALID_INPUT": return state
+    if state.get("api_response", {}).get("status") in ["INVALID_INPUT", "ABSTAINED"]: return state
     trace = state["trace"]
-    res = await call_specialist_model(state["selected_task"], state["query"], state["files"], state["parameters"])
+    res = await call_specialist_model(state["selected_task"], state["query"], state["files"], state["parameters"], state.get("app_state"))
     trace.append(f"EXECUTION: Received status {res.get('status')}")
     return {"api_response": res, "trace": trace}
 

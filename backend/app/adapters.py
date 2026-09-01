@@ -2,7 +2,7 @@ import httpx
 from typing import List, Dict
 from .model_registry import MODEL_REGISTRY, get_tool_status
 
-async def call_specialist_model(task: str, query: str, files_data: List[Dict], params: dict) -> dict:
+async def call_specialist_model(task: str, query: str, files_data: List[Dict], params: dict, app_state=None) -> dict:
     permitted = MODEL_REGISTRY[task]["permitted_parameters"]
     safe_params = {k: v for k, v in params.items() if k in permitted}
     if len(safe_params) != len(params):
@@ -14,12 +14,12 @@ async def call_specialist_model(task: str, query: str, files_data: List[Dict], p
     base_url = MODEL_REGISTRY[task]["base_url"]
 
     # Fallback to local models if no endpoint is configured or if it's explicitly local
-    if not base_url:
+    if not base_url or base_url == "local":
         from .local_specialists import run_local_vqa, run_local_captioning, run_local_grounding
         if task == "vqa":
             return run_local_vqa(query, files_data)
         elif task == "captioning":
-            return run_local_captioning(files_data)
+            return run_local_captioning(files_data, app_state)
         elif task == "grounding":
             return run_local_grounding(query, files_data, params.get("confidence_threshold", 0.3))
         elif task == "land_cover_classification":

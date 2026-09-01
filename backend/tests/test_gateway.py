@@ -5,8 +5,12 @@ from backend.app.main import app
 client = TestClient(app)
 
 def test_health():
-    res = client.get("/health").json()
-    assert res["api_status"] == "AVAILABLE"
+    with TestClient(app) as client:
+        res = client.get("/health").json()
+        assert "status" in res
+        assert res["status"] in ["ok", "degraded", "offline"]
+        assert "base_model_loaded" in res
+        assert "adapter_loaded" in res
 
 def test_png_accepted_with_benchmark(valid_png_bytes):
     files = [("files", ("test.png", valid_png_bytes, "image/png"))]

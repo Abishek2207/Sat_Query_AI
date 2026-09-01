@@ -81,38 +81,26 @@ def run_local_vqa(query: str, files_data: List[Dict]) -> Dict[str, Any]:
     except Exception as e:
         return {"status": "MODEL_UNAVAILABLE", "answer": f"Local inference failed: {str(e)}", "evidence": []}
 
-def run_local_captioning(files_data: List[Dict]) -> Dict[str, Any]:
+def run_local_captioning(files_data: List[Dict], app_state=None) -> Dict[str, Any]:
     import os, sys
     from datetime import datetime, timezone
-    project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-    if project_root not in sys.path: sys.path.append(project_root)
-        
+    
     try:
-        from src.models.loader import load_blip_rsicd
-        adapter_path = os.path.join(project_root, "models", "rsicd_blip_lora", "adapter.pt")
-        adapter_loaded = False
-        
-        if os.path.exists(adapter_path):
-            processor, model, device = load_blip_rsicd(adapter_path=adapter_path)
-            adapter_loaded = True
+        if app_state and getattr(app_state, "caption_model", None) is not None:
+            model = app_state.caption_model
+            processor = app_state.caption_processor
+            device = app_state.caption_device
+            adapter_loaded = getattr(app_state, "adapter_loaded", False)
         else:
-            from transformers import BlipProcessor, BlipForConditionalGeneration
-            device = "cuda" if torch.cuda.is_available() else "cpu"
-            processor = BlipProcessor.from_pretrained("Salesforce/blip-image-captioning-base")
-            model = BlipForConditionalGeneration.from_pretrained("Salesforce/blip-image-captioning-base").to(device)
-            model.eval()
-            
+            return {"status": "MODEL_UNAVAILABLE", "answer": "Caption model not initialized at startup.", "evidence": []}
+
         image = _load_image(files_data)
-        inputs = processor(image, return_tensors="pt").to(device)
+        inputs = processor(images=image, return_tensors="pt").to(device)
         
-        with torch.inference_mode():
+        with torch.no_grad():
             out = model.generate(**inputs, max_new_tokens=30)
             
         answer = processor.decode(out[0], skip_special_tokens=True)
-        
-        del model, processor, inputs
-        if torch.cuda.is_available(): torch.cuda.empty_cache()
-        gc.collect()
         
         model_name = "Salesforce/blip-image-captioning-base"
         prov = {

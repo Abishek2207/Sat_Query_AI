@@ -1,7 +1,11 @@
 import json
+import os
+import torch
+import gc
+from contextlib import asynccontextmanager
 from typing import List
 from datetime import datetime
-from fastapi import FastAPI, UploadFile, File, Form, Response
+from fastapi import FastAPI, UploadFile, File, Form, Response, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 from .schemas import AnalysisResponse
@@ -10,7 +14,49 @@ from .model_registry import MODEL_REGISTRY, get_tool_status
 from .report import generate_pdf_report
 from .history import log_request, get_history, get_stats
 
-app = FastAPI(title="SatQuery AI API Gateway", version="1.0.0")
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    print("[Startup] Initializing models...")
+    app.state.caption_model = None
+    app.state.caption_processor = None
+    app.state.caption_device = None
+    app.state.adapter_loaded = False
+    
+    project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
+    adapter_path = os.path.join(project_root, "models", "rsicd_blip_lora", "adapter.pt")
+    
+    try:
+        if os.path.exists(adapter_path):
+            from src.inference.caption import RSICDCaptioner
+            captioner = RSICDCaptioner(adapter_path=adapter_path)
+            app.state.caption_model = captioner.model
+            app.state.caption_processor = captioner.processor
+            app.state.caption_device = captioner.device
+            app.state.adapter_loaded = True
+            print("[Startup] RSICDCaptioner loaded successfully WITH adapter.")
+        else:
+            from transformers import BlipProcessor, BlipForConditionalGeneration
+            device = "cuda" if torch.cuda.is_available() else "cpu"
+            processor = BlipProcessor.from_pretrained("Salesforce/blip-image-captioning-base")
+            model = BlipForConditionalGeneration.from_pretrained("Salesforce/blip-image-captioning-base").to(device)
+            model.eval()
+            app.state.caption_model = model
+            app.state.caption_processor = processor
+            app.state.caption_device = device
+            app.state.adapter_loaded = False
+            print("[Startup] Base model loaded successfully WITHOUT adapter.")
+    except Exception as e:
+        print(f"[Startup] Error initializing captioning model: {e}")
+        
+    yield
+    print("[Shutdown] Cleaning up...")
+    app.state.caption_model = None
+    app.state.caption_processor = None
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+    gc.collect()
+
+app = FastAPI(title="SatQuery AI API Gateway", version="1.0.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -31,13 +77,36 @@ def root():
     return {"name": "SatQuery AI", "status": "AVAILABLE", "version": "1.0.0"}
 
 @app.get("/health")
-def health_check():
+def health_check(request: Request):
     tool_status = {task: get_tool_status(task) for task in MODEL_REGISTRY.keys()}
+    
+    # Determine base model and adapter status
+    base_model_loaded = getattr(request.app.state, "caption_model", None) is not None
+    adapter_loaded = getattr(request.app.state, "adapter_loaded", False)
+    
+    # Determine overall status
+    if not base_model_loaded:
+        status = "offline"
+    elif not adapter_loaded:
+        status = "degraded"
+    else:
+        status = "ok"
+        
+    capabilities = {
+        "captioning": tool_status.get("captioning") == "READY",
+        "vqa": tool_status.get("vqa") == "READY",
+        "grounding": tool_status.get("grounding") == "READY",
+        "change_analysis": tool_status.get("change_analysis") == "READY",
+        "optical_sar": tool_status.get("optical_sar") == "READY",
+    }
+    
     return {
-        "api_status": "AVAILABLE",
-        "specialist_endpoints_configured": any(v["base_url"] != "" for v in MODEL_REGISTRY.values()),
-        "registry_status": tool_status,
-        "baseline_tools": ["change_map", "optical_sar"],
+        "status": status,
+        "device": getattr(request.app.state, "caption_device", "unknown"),
+        "base_model_loaded": base_model_loaded,
+        "adapter_loaded": adapter_loaded,
+        "capabilities": capabilities,
+        "registry_status": tool_status
     }
 
 @app.get("/models")
@@ -79,6 +148,7 @@ def admin_history():
 
 @app.post("/analyze", response_model=AnalysisResponse)
 async def analyze(
+    request: Request,
     query: str = Form(...),
     parameters: str = Form("{}"),
     benchmark_mode: bool = Form(False),
@@ -97,6 +167,7 @@ async def analyze(
         "parameters": params_dict,
         "benchmark_mode": benchmark_mode,
         "trace": [],
+        "app_state": request.app.state,
     }
 
     try:
@@ -132,6 +203,7 @@ async def analyze(
 
 @app.post("/report")
 async def download_report(
+    request: Request,
     query: str = Form(...),
     parameters: str = Form("{}"),
     benchmark_mode: bool = Form(False),
@@ -150,6 +222,7 @@ async def download_report(
         "parameters": params_dict,
         "benchmark_mode": benchmark_mode,
         "trace": [],
+        "app_state": request.app.state,
     }
 
     try:

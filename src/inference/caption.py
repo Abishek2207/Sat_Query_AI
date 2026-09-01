@@ -11,12 +11,17 @@ class RSICDCaptioner:
             print(f"[Captioner] Critical error initializing model: {e}")
             raise
 
-    def generate(self, image_path: str, max_new_tokens=30) -> str:
-        if not os.path.exists(image_path):
-            raise FileNotFoundError(f"[Captioner] Image not found at {image_path}")
-            
+    def generate(self, image_input, max_new_tokens=30) -> str:
         try:
-            image = Image.open(image_path).convert("RGB")
+            if isinstance(image_input, str):
+                if not os.path.exists(image_input):
+                    raise FileNotFoundError(f"[Captioner] Image not found at {image_input}")
+                image = Image.open(image_input).convert("RGB")
+            elif isinstance(image_input, Image.Image):
+                image = image_input.convert("RGB")
+            else:
+                raise ValueError("[Captioner] Invalid image_input type")
+
             inputs = self.processor(images=image, return_tensors="pt").to(self.device)
             
             with torch.no_grad():
