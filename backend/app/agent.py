@@ -151,12 +151,18 @@ def abstain_node(state: AgentState):
     else:
         # Check abstention via policy
         policy_res = enforce_abstention(res.get("evidence", []), res.get("conflict", False))
-        if policy_res["status"] == "UNCERTAIN":
-            res["status"] = "UNCERTAIN"
+        
+        # Override the status to match PDF exactly
+        res["status"] = policy_res["status"]
+        
+        if policy_res["status"] == "INSUFFICIENT_EVIDENCE":
             res["abstention_reason"] = policy_res["abstention_reason"]
             trace.append(f"ABSTENTION: {policy_res['abstention_reason']}")
-            if not res.get("conflict", False):
-                res["answer"] = "UNCERTAIN: " + policy_res["abstention_reason"]
+            res["answer"] = "INSUFFICIENT EVIDENCE: " + policy_res["abstention_reason"]
+            
+        elif policy_res["status"] == "PARTIALLY_VERIFIED":
+            res["abstention_reason"] = policy_res["abstention_reason"]
+            trace.append(f"ABSTENTION (PARTIAL): {policy_res['abstention_reason']}")
 
     return {"api_response": res, "trace": trace}
 

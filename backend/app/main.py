@@ -10,17 +10,26 @@ from .model_registry import MODEL_REGISTRY, get_tool_status
 from .report import generate_pdf_report
 from .history import log_request, get_history, get_stats
 
+import os
+
 app = FastAPI(title="SatQuery AI API Gateway", version="1.0.0")
+
+allowed_origins = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "http://localhost:5174",
+    "http://127.0.0.1:5174",
+]
+
+env_origin = os.getenv("FRONTEND_ORIGIN")
+if env_origin:
+    allowed_origins.append(env_origin)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-        "https://satquery-ai.vercel.app"
-    ],
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["*"],

@@ -23,6 +23,12 @@ def validate_evidence(evidence_list: list) -> list:
             if not isinstance(ev["region"], list) or len(ev["region"]) != 4:
                 raise EvidencePolicyError(f"Fabricated bounding box detected: {ev['region']}")
 
+        # Hallucination Guards for SIH 26167 Demo
+        claim_lower = str(ev.get("claim", "")).lower()
+        if "hospital" in claim_lower or "population" in claim_lower or "exact" in claim_lower:
+            if ev.get("confidence") is None or ev.get("region") is None:
+                raise EvidencePolicyError("Insufficient visual evidence to verify a hospital or specific population metrics without spatial grounding.")
+
     return evidence_list
 
 def verify_dataset_status(status: str) -> str:
@@ -34,19 +40,18 @@ def verify_dataset_status(status: str) -> str:
 
 def enforce_abstention(evidence_list: list, conflict_detected: bool = False) -> Dict[str, Any]:
     """
-    If evidence is insufficient or conflicts exist, the system MUST abstain 
-    and return UNCERTAIN.
+    If evidence is insufficient or conflicts exist, the system MUST abstain.
     """
     if conflict_detected:
         return {
-            "status": "UNCERTAIN",
+            "status": "PARTIALLY_VERIFIED",
             "abstention_reason": "Conflict detected between modalities or reasoning paths."
         }
     
     if not evidence_list:
         return {
-            "status": "UNCERTAIN",
+            "status": "INSUFFICIENT_EVIDENCE",
             "abstention_reason": "Insufficient evidence extracted from models to formulate a reliable response."
         }
         
-    return {"status": "SUCCESS", "abstention_reason": None}
+    return {"status": "VERIFIED", "abstention_reason": None}

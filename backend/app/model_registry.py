@@ -18,7 +18,7 @@ MODEL_REGISTRY = {
         "remote_sensing_adapted": False,
         "checksum": "verified_hf_cache",
         "device": "CUDA/CPU (Auto)",
-        "base_url": os.getenv("VQA_ENDPOINT", "local"),
+        "base_url": os.getenv("VQA_ENDPOINT", ""),
         "accepted_modalities": ["optical", "sar", "unknown"],
         "required_images": 1,
         "permitted_parameters": []
@@ -37,7 +37,7 @@ MODEL_REGISTRY = {
         "remote_sensing_adapted": True,
         "checksum": "verified_local_lora",
         "device": "CUDA/CPU (Auto)",
-        "base_url": os.getenv("CAPTIONING_ENDPOINT", "local"),
+        "base_url": os.getenv("CAPTIONING_ENDPOINT", ""),
         "accepted_modalities": ["optical", "sar", "unknown"],
         "required_images": 1,
         "permitted_parameters": []
@@ -56,7 +56,7 @@ MODEL_REGISTRY = {
         "remote_sensing_adapted": False,
         "checksum": "verified_hf_cache",
         "device": "CUDA/CPU (Auto)",
-        "base_url": os.getenv("GROUNDING_ENDPOINT", "local"),
+        "base_url": os.getenv("GROUNDING_ENDPOINT", ""),
         "accepted_modalities": ["optical", "unknown"],
         "required_images": 1,
         "permitted_parameters": ["confidence_threshold"]
@@ -75,7 +75,7 @@ MODEL_REGISTRY = {
         "remote_sensing_adapted": True,
         "checksum": "verified_hf_cache",
         "device": "CUDA/CPU (Auto)",
-        "base_url": os.getenv("LAND_COVER_ENDPOINT", "local"),
+        "base_url": os.getenv("LAND_COVER_ENDPOINT", ""),
         "accepted_modalities": ["optical", "unknown"],
         "required_images": 1,
         "permitted_parameters": []
@@ -94,7 +94,7 @@ MODEL_REGISTRY = {
         "remote_sensing_adapted": True,
         "checksum": "verified_local",
         "device": "CPU",
-        "base_url": os.getenv("CHANGE_ENDPOINT", "local"),
+        "base_url": os.getenv("CHANGE_ENDPOINT", ""),
         "accepted_modalities": ["optical", "sar", "unknown"],
         "required_images": 2,
         "permitted_parameters": []
@@ -113,7 +113,7 @@ MODEL_REGISTRY = {
         "remote_sensing_adapted": True,
         "checksum": "verified_local",
         "device": "CPU",
-        "base_url": os.getenv("OPTICAL_SAR_ENDPOINT", "local"),
+        "base_url": os.getenv("OPTICAL_SAR_ENDPOINT", ""),
         "accepted_modalities": ["optical", "sar"],
         "required_images": 2,
         "permitted_parameters": []
@@ -126,7 +126,7 @@ def get_tool_status(task: str) -> str:
         return "MODEL UNAVAILABLE"
     # For local inference loaded on-demand, they are always available 
     # unless missing dependencies, which we assume true if running.
-    if entry.get("base_url") == "local":
+    if entry.get("base_url") == "":
         return "READY"
         
     try:

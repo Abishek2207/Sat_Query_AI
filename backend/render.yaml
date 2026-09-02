@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: satquery-backend
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.10.12
+      - key: FRONTEND_ORIGIN
+        sync: false
+      - key: HF_HUB_OFFLINE
+        value: "0"
+      - key: TRANSFORMERS_OFFLINE
+        value: "0"

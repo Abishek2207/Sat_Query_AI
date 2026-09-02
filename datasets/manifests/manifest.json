@@ -1,0 +1,55 @@
+[
+  {
+    "filename": "image_0.jpg",
+    "source": "RSICD Open Dataset",
+    "dataset": "RSICD Subset",
+    "sensor": "UNKNOWN (JPEG)",
+    "modality": "optical",
+    "CRS": "UNKNOWN"
+  },
+  {
+    "filename": "optical_before.tif",
+    "source": "Microsoft Planetary Computer (STAC)",
+    "dataset": "Sentinel-2 L2A",
+    "sensor": "MSI",
+    "modality": "optical",
+    "acquisition_date": "2023-07-09",
+    "CRS": "EPSG:32610",
+    "width": 224,
+    "height": 224,
+    "resolution": 10.0,
+    "dtype": "uint16",
+    "band_count": 1,
+    "band_names": ["B04"]
+  },
+  {
+    "filename": "optical_after.tif",
+    "source": "Microsoft Planetary Computer (STAC)",
+    "dataset": "Sentinel-2 L2A",
+    "sensor": "MSI",
+    "modality": "optical",
+    "acquisition_date": "2023-07-31",
+    "CRS": "EPSG:32610",
+    "width": 224,
+    "height": 224,
+    "resolution": 10.0,
+    "dtype": "uint16",
+    "band_count": 1,
+    "band_names": ["B04"]
+  },
+  {
+    "filename": "sar_before.tif",
+    "source": "Microsoft Planetary Computer (STAC)",
+    "dataset": "Sentinel-1 RTC",
+    "sensor": "SAR",
+    "modality": "sar",
+    "acquisition_date": "2023-07-09",
+    "CRS": "EPSG:32610",
+    "width": 224,
+    "height": 224,
+    "resolution": 10.0,
+    "dtype": "float32",
+    "band_count": 1,
+    "band_names": ["VV RTC Backscatter"]
+  }
+]

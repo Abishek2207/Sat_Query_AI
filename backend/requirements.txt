@@ -1,0 +1,14 @@
+fastapi
+uvicorn
+python-multipart
+torch
+torchvision
+transformers
+rasterio
+langgraph
+langchain
+langchain-core
+reportlab
+scipy
+peft
+pyyaml

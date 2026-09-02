@@ -1,9 +1,13 @@
 import io
 import gc
+import os
+import sys
 import torch
 import numpy as np
 from PIL import Image
 from typing import List, Dict, Any
+
+_GLOBAL_MODELS = {}
 
 def _load_image(files_data: List[Dict]) -> Image.Image:
     try:
@@ -36,11 +40,15 @@ def _build_evidence(claim: str, evidence: str, model: str, version: str, region:
 def run_local_vqa(query: str, files_data: List[Dict]) -> Dict[str, Any]:
     from datetime import datetime, timezone
     try:
-        from transformers import BlipProcessor, BlipForQuestionAnswering
         device = "cuda" if torch.cuda.is_available() else "cpu"
         
-        processor = BlipProcessor.from_pretrained("Salesforce/blip-vqa-base")
-        model = BlipForQuestionAnswering.from_pretrained("Salesforce/blip-vqa-base").to(device)
+        if "vqa" not in _GLOBAL_MODELS:
+            from transformers import BlipProcessor, BlipForQuestionAnswering
+            processor = BlipProcessor.from_pretrained("Salesforce/blip-vqa-base")
+            model = BlipForQuestionAnswering.from_pretrained("Salesforce/blip-vqa-base").to(device)
+            _GLOBAL_MODELS["vqa"] = (processor, model, device)
+            
+        processor, model, device = _GLOBAL_MODELS["vqa"]
         
         image = _load_image(files_data)
         inputs = processor(image, query, return_tensors="pt").to(device)
@@ -49,10 +57,6 @@ def run_local_vqa(query: str, files_data: List[Dict]) -> Dict[str, Any]:
             out = model.generate(**inputs)
             
         answer = processor.decode(out[0], skip_special_tokens=True)
-        
-        del model, processor, inputs
-        if torch.cuda.is_available(): torch.cuda.empty_cache()
-        gc.collect()
         
         model_name = "Salesforce/blip-vqa-base"
         ev = _build_evidence(
@@ -82,37 +86,45 @@ def run_local_vqa(query: str, files_data: List[Dict]) -> Dict[str, Any]:
         return {"status": "MODEL_UNAVAILABLE", "answer": f"Local inference failed: {str(e)}", "evidence": []}
 
 def run_local_captioning(files_data: List[Dict]) -> Dict[str, Any]:
-    import os, sys
     from datetime import datetime, timezone
     project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
     if project_root not in sys.path: sys.path.append(project_root)
         
     try:
-        from src.models.loader import load_blip_rsicd
-        adapter_path = os.path.join(project_root, "models", "rsicd_blip_lora", "adapter.pt")
-        adapter_loaded = False
+        device = "cuda" if torch.cuda.is_available() else "cpu"
         
-        if os.path.exists(adapter_path):
-            processor, model, device = load_blip_rsicd(adapter_path=adapter_path)
-            adapter_loaded = True
-        else:
-            from transformers import BlipProcessor, BlipForConditionalGeneration
-            device = "cuda" if torch.cuda.is_available() else "cpu"
-            processor = BlipProcessor.from_pretrained("Salesforce/blip-image-captioning-base")
-            model = BlipForConditionalGeneration.from_pretrained("Salesforce/blip-image-captioning-base").to(device)
-            model.eval()
+        if "captioning" not in _GLOBAL_MODELS:
+            try:
+                from src.models.loader import load_blip_rsicd
+                adapter_path = os.path.join(project_root, "models", "rsicd_blip_lora", "adapter.pt")
+                if os.path.exists(adapter_path):
+                    processor, model, device = load_blip_rsicd(adapter_path=adapter_path)
+                    adapter_loaded = True
+                    _GLOBAL_MODELS["captioning"] = (processor, model, device, adapter_loaded)
+                else:
+                    raise FileNotFoundError
+            except Exception:
+                from transformers import BlipProcessor, BlipForConditionalGeneration
+                processor = BlipProcessor.from_pretrained("Salesforce/blip-image-captioning-base")
+                model = BlipForConditionalGeneration.from_pretrained("Salesforce/blip-image-captioning-base").to(device)
+                model.eval()
+                _GLOBAL_MODELS["captioning"] = (processor, model, device, False)
+                
+        processor, model, device, adapter_loaded = _GLOBAL_MODELS["captioning"]
             
         image = _load_image(files_data)
         inputs = processor(image, return_tensors="pt").to(device)
         
         with torch.inference_mode():
-            out = model.generate(**inputs, max_new_tokens=30)
+            out = model.generate(
+                **inputs,
+                max_new_tokens=50,
+                num_beams=3,
+                no_repeat_ngram_size=3,
+                repetition_penalty=1.2
+            )
             
         answer = processor.decode(out[0], skip_special_tokens=True)
-        
-        del model, processor, inputs
-        if torch.cuda.is_available(): torch.cuda.empty_cache()
-        gc.collect()
         
         model_name = "Salesforce/blip-image-captioning-base"
         prov = {
@@ -150,11 +162,16 @@ def run_local_captioning(files_data: List[Dict]) -> Dict[str, Any]:
 def run_local_grounding(query: str, files_data: List[Dict], confidence_threshold: float = 0.3) -> Dict[str, Any]:
     from datetime import datetime, timezone
     try:
-        from transformers import AutoProcessor, AutoModelForZeroShotObjectDetection
         device = "cuda" if torch.cuda.is_available() else "cpu"
         model_name = "IDEA-Research/grounding-dino-base"
-        processor = AutoProcessor.from_pretrained(model_name)
-        model = AutoModelForZeroShotObjectDetection.from_pretrained(model_name).to(device)
+        
+        if "grounding" not in _GLOBAL_MODELS:
+            from transformers import AutoProcessor, AutoModelForZeroShotObjectDetection
+            processor = AutoProcessor.from_pretrained(model_name)
+            model = AutoModelForZeroShotObjectDetection.from_pretrained(model_name).to(device)
+            _GLOBAL_MODELS["grounding"] = (processor, model, device)
+            
+        processor, model, device = _GLOBAL_MODELS["grounding"]
         
         image = _load_image(files_data)
         text = (query if query.endswith(".") else query + ".").lower()
@@ -185,10 +202,6 @@ def run_local_grounding(query: str, files_data: List[Dict], confidence_threshold
         else:
             answer = "No objects detected matching the query."
             
-        del model, processor, inputs
-        if torch.cuda.is_available(): torch.cuda.empty_cache()
-        gc.collect()
-        
         return {
             "status": "SUCCESS",
             "answer": answer,

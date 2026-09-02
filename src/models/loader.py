@@ -77,8 +77,14 @@ def load_blip_rsicd(base_name="Salesforce/blip-image-captioning-base", adapter_p
             key_a = f"{name}.lora_A"
             key_b = f"{name}.lora_B"
             if key_a in state_dict and key_b in state_dict:
-                module.lora_A.data.copy_(state_dict[key_a])
-                module.lora_B.data.copy_(state_dict[key_b])
+                tensor_a = state_dict[key_a]
+                tensor_b = state_dict[key_b]
+                if tensor_a.shape != module.lora_A.shape:
+                    tensor_a = tensor_a.t()
+                if tensor_b.shape != module.lora_B.shape:
+                    tensor_b = tensor_b.t()
+                module.lora_A.data.copy_(tensor_a)
+                module.lora_B.data.copy_(tensor_b)
             else:
                 missing_keys.append(name)
                 
