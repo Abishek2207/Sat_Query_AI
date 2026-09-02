@@ -1,8 +1,6 @@
 import io
 import os
-import rasterio
 from PIL import Image
-from rasterio.io import MemoryFile
 
 from .schemas import ValidationResult
 
@@ -27,6 +25,15 @@ def validate_image_bytes(
     ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
 
     if ext in {"tif", "tiff", "geotiff"}:
+        try:
+            import rasterio
+            from rasterio.io import MemoryFile
+        except ImportError:
+            return ValidationResult(
+                valid=False,
+                reason="GeoTIFF validation failed: rasterio is not installed or unavailable due to system policy."
+            )
+            
         try:
             with MemoryFile(file_bytes) as memfile:
                 with memfile.open() as src:
@@ -84,3 +91,23 @@ def validate_image_bytes(
         valid=False,
         reason="Unsupported file extension. Supported formats: GeoTIFF/TIFF and benchmark PNG/JPEG."
     )
+
+def validate_image_pair(res1: ValidationResult, res2: ValidationResult) -> ValidationResult:
+    if not res1.valid:
+        return res1
+    if not res2.valid:
+        return res2
+
+    # If both are geotiff, check spatial compatibility
+    if res1.file_format == "geotiff" and res2.file_format == "geotiff":
+        if res1.crs != res2.crs:
+            return ValidationResult(valid=False, reason=f"CRS mismatch: {res1.crs} vs {res2.crs}")
+        if res1.width != res2.width or res1.height != res2.height:
+            return ValidationResult(valid=False, reason=f"Dimension mismatch: {res1.width}x{res1.height} vs {res2.width}x{res2.height}")
+            
+    # Check Modality compatibility if one is SAR and one is optical
+    if res1.modality != res2.modality and res1.modality != "unknown" and res2.modality != "unknown":
+        if not ((res1.modality == "optical" and res2.modality == "sar") or (res1.modality == "sar" and res2.modality == "optical")):
+            return ValidationResult(valid=False, reason="Incompatible cross-modal pair. Expected Optical + SAR.")
+            
+    return ValidationResult(valid=True)
