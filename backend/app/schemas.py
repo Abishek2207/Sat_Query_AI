@@ -51,3 +51,6 @@ class AnalysisResponse(BaseModel):
     validation: Optional[List[ValidationResult]] = None
     conflict: bool = False
     abstention_reason: Optional[str] = None
+    selected_tools: Optional[List[str]] = None
+    parsed_intent: Optional[dict] = None
+    warnings: Optional[List[str]] = None

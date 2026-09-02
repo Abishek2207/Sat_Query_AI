@@ -7,10 +7,10 @@ client = TestClient(app)
 def test_health():
     with TestClient(app) as client:
         res = client.get("/health").json()
-        assert "status" in res
-        assert res["status"] in ["ok", "degraded", "offline"]
-        assert "base_model_loaded" in res
-        assert "adapter_loaded" in res
+        assert "api_status" in res
+        assert res["api_status"] in ["AVAILABLE", "DEGRADED", "OFFLINE"]
+        assert "registry_status" in res
+        assert "baseline_tools" in res
 
 def test_png_accepted_with_benchmark(valid_png_bytes):
     files = [("files", ("test.png", valid_png_bytes, "image/png"))]

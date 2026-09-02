@@ -85,7 +85,7 @@ def run_local_vqa(query: str, files_data: List[Dict]) -> Dict[str, Any]:
     except Exception as e:
         return {"status": "MODEL_UNAVAILABLE", "answer": f"Local inference failed: {str(e)}", "evidence": []}
 
-def run_local_captioning(files_data: List[Dict]) -> Dict[str, Any]:
+def run_local_captioning(files_data: List[Dict], app_state=None) -> Dict[str, Any]:
     from datetime import datetime, timezone
     project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
     if project_root not in sys.path: sys.path.append(project_root)

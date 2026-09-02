@@ -12,143 +12,231 @@ class AgentState(TypedDict):
     benchmark_mode: bool
     validation_results: List[ValidationResult]
     parsed_intent: dict
+    selected_tools: List[str]
+    tool_results: List[dict]
     selected_task: str
     api_response: dict
     trace: List[str]
     app_state: Any
+    warnings: List[str]
 
 def validate_node(state: AgentState):
     trace = state.get("trace", [])
     val_results = []
     
-    # Check single image validations
     for f in state["files"]:
         res = validate_image_bytes(f["filename"], f["bytes"], benchmark_mode=state.get("benchmark_mode", False))
         val_results.append(res)
         if not res.valid:
-            trace.append(f"VALIDATION FAILED: {f['filename']} -> {res.reason}")
+            trace.append(f"INPUT_VALIDATION FAILED: {f['filename']} -> {res.reason}")
             return {"api_response": {"status": "INVALID_INPUT", "answer": "VALIDATION_FAILED: " + res.reason}, "validation_results": val_results, "trace": trace}
-        trace.append(f"VALIDATED: {f['filename']} (Modality: {res.modality}, Bands: {res.bands})")
+        trace.append(f"INPUT_VALIDATION: {f['filename']} (Modality: {res.modality}, Bands: {res.bands})")
         
-    # Check two-image pair compatibility
     if len(val_results) == 2:
         from .validator import validate_image_pair
         pair_res = validate_image_pair(val_results[0], val_results[1])
         if not pair_res.valid:
-            trace.append(f"PAIR VALIDATION FAILED: {pair_res.reason}")
-            return {"api_response": {"status": "ABSTAINED", "answer": "ABSTAINED: " + pair_res.reason, "abstention_reason": pair_res.reason}, "validation_results": val_results, "trace": trace}
+            trace.append(f"INPUT_VALIDATION FAILED (PAIR): {pair_res.reason}")
+            return {"api_response": {"status": "DATA_UNAVAILABLE", "answer": "DATA_UNAVAILABLE: " + pair_res.reason, "abstention_reason": pair_res.reason}, "validation_results": val_results, "trace": trace}
             
     return {"validation_results": val_results, "trace": trace}
 
-def understand_node(state: AgentState):
-    if state.get("api_response", {}).get("status") == "INVALID_INPUT": return state
+def parse_query_node(state: AgentState):
+    if state.get("api_response", {}).get("status") in ["INVALID_INPUT", "DATA_UNAVAILABLE"]: return state
     query = state["query"].lower()
     
-    intent = {"requires_spatial": False, "requires_temporal": False, "requires_crossmodal": False}
-    if any(kw in query for kw in ["where", "locate", "highlight", "find"]):
-        intent["requires_spatial"] = True
-    if any(kw in query for kw in ["change", "difference"]):
-        intent["requires_temporal"] = True
-    if any(kw in query for kw in ["sar", "radar"]) and any(kw in query for kw in ["optical"]):
-        intent["requires_crossmodal"] = True
-        
-    state["trace"].append(f"UNDERSTANDING: Parsed intent -> {intent}")
-    return {"parsed_intent": intent, "trace": state["trace"]}
+    intent = {
+        "vqa": False,
+        "captioning": False,
+        "grounding": False,
+        "land_cover": False,
+        "change_analysis": False,
+        "optical_sar": False,
+        "multi_tool": False
+    }
 
-def route_node(state: AgentState):
-    if state.get("api_response", {}).get("status") == "INVALID_INPUT": return state
+    lc_keywords = [
+        "classify", "classification", "land cover", "land-cover", 
+        "land surface", "land type", "terrain type", "area type", 
+        "geographic land", "what type of area", "what kind of land", 
+        "what kind of area", "identify the land"
+    ]
+    if any(kw in query for kw in lc_keywords):
+        intent["land_cover"] = True
+
+    if any(kw in query for kw in ["where", "locate", "highlight", "find"]):
+        intent["grounding"] = True
+
+    if any(kw in query for kw in ["describe", "scene", "caption"]):
+        intent["captioning"] = True
+
+    if any(kw in query for kw in ["change", "difference"]):
+        intent["change_analysis"] = True
+
+    if any(kw in query for kw in ["sar", "radar"]):
+        intent["optical_sar"] = True
+        
+    if not any(intent.values()):
+        intent["vqa"] = True
+        
+    if sum([1 for k, v in intent.items() if v]) > 1:
+        intent["multi_tool"] = True
+        
+    trace = state.get("trace", [])
+    trace.append(f"QUERY_UNDERSTANDING: Parsed intents -> {intent}")
+    return {"parsed_intent": intent, "trace": trace}
+
+def plan_tools_node(state: AgentState):
+    if state.get("api_response", {}).get("status") in ["INVALID_INPUT", "DATA_UNAVAILABLE"]: return state
     
-    query = state["query"].lower()
-    img_count = len(state["files"])
     intent = state.get("parsed_intent", {})
     trace = state["trace"]
+    img_count = len(state["files"])
     val = state["validation_results"]
 
-    task = "UNKNOWN"
+    tools = []
+    warnings = state.get("warnings", [])
+
     if img_count == 2:
-        if intent["requires_crossmodal"] or (val[0].modality != val[1].modality and val[0].modality != "unknown" and val[1].modality != "unknown"):
-            task = "optical_sar"
-        elif intent["requires_temporal"] or any(kw in query for kw in ["change", "difference"]):
-            task = "change_analysis"
+        if intent.get("change_analysis"):
+            tools.append("change_analysis")
+        elif intent.get("optical_sar") or (val[0].modality != val[1].modality and val[0].modality != "unknown" and val[1].modality != "unknown"):
+            tools.append("optical_sar")
+        # Do not force change_analysis if intent is completely unknown to preserve ambiguity
     elif img_count == 1:
-        lc_keywords = [
-            "classify", "classification", "land cover", "land-cover", 
-            "land surface", "land type", "terrain type", "area type", 
-            "geographic land", "what type of area", "what kind of land", 
-            "what kind of area", "identify the land"
-        ]
-        if any(kw in query for kw in lc_keywords):
-            task = "land_cover_classification"
-        elif intent["requires_spatial"]:
-            task = "grounding"
-        elif any(kw in query for kw in ["describe", "scene", "caption"]):
-            task = "captioning"
-        else:
-            task = "vqa"
+        if intent.get("change_analysis") or intent.get("optical_sar"):
+            trace.append("TOOL_SELECTION FAILED: Requested multi-image capability but provided only 1 image.")
+            return {"api_response": {"status": "DATA_UNAVAILABLE", "answer": "DATA_UNAVAILABLE: This operation requires two compatible images."}, "trace": trace}
             
-    if task == "UNKNOWN":
-        trace.append("ROUTER FAILED: Ambiguous or unsupported input configuration.")
+        if intent.get("captioning"):
+            tools.append("captioning")
+        if intent.get("grounding"):
+            tools.append("grounding")
+        if intent.get("land_cover"):
+            tools.append("land_cover_classification")
+        if intent.get("vqa") and not tools:
+            tools.append("vqa")
+            
+    if not tools:
+        trace.append("TOOL_SELECTION FAILED: Ambiguous or unsupported input configuration.")
         return {"api_response": {"status": "INVALID_INPUT", "answer": "Ambiguous configuration."}, "trace": trace}
 
-    trace.append(f"ROUTER: Selected task '{task}'.")
-    return {"selected_task": task, "trace": trace}
+    trace.append(f"TOOL_SELECTION: Selected tools {tools}.")
+    return {"selected_tools": tools, "trace": trace, "warnings": warnings}
 
-async def execute_node(state: AgentState):
-    if state.get("api_response", {}).get("status") in ["INVALID_INPUT", "ABSTAINED"]: return state
+async def execute_tools_node(state: AgentState):
+    if state.get("api_response", {}).get("status") in ["INVALID_INPUT", "DATA_UNAVAILABLE"]: return state
     trace = state["trace"]
-    res = await call_specialist_model(state["selected_task"], state["query"], state["files"], state["parameters"], state.get("app_state"))
-    trace.append(f"EXECUTION: Received status {res.get('status')}")
-    return {"api_response": res, "trace": trace}
-
-def aggregate_node(state: AgentState):
-    if state.get("api_response", {}).get("status") in ["INVALID_INPUT", "MODEL_UNAVAILABLE"]: return state
-    res = state.get("api_response", {})
-    trace = state["trace"]
+    tools = state.get("selected_tools", [])
     
-    if "evidence" not in res:
-        res["evidence"] = []
+    tool_results = []
+    for tool in tools:
+        res = await call_specialist_model(tool, state["query"], state["files"], state["parameters"], state.get("app_state"))
+        res["tool"] = tool
+        tool_results.append(res)
+        trace.append(f"EXECUTION: Tool '{tool}' returned status {res.get('status')}")
         
-    trace.append(f"AGGREGATION: Aggregated {len(res['evidence'])} evidence items.")
-    return {"api_response": res, "trace": trace}
+    return {"tool_results": tool_results, "trace": trace}
 
-def verify_node(state: AgentState):
-    if state.get("api_response", {}).get("status") in ["INVALID_INPUT", "MODEL_UNAVAILABLE"]: return state
+def synthesize_results_node(state: AgentState):
+    if state.get("api_response", {}).get("status") in ["INVALID_INPUT", "DATA_UNAVAILABLE"]: return state
+    trace = state["trace"]
+    results = state.get("tool_results", [])
+    tools = state.get("selected_tools", [])
+    
+    combined_evidence = []
+    combined_answers = []
+    any_failed = False
+    all_failed = True
+    combined_visual = None
+    has_conflict = False
+    
+    confidences = []
+    
+    for r in results:
+        if r.get("status") == "SUCCESS":
+            all_failed = False
+            combined_answers.append(f"[{r['tool'].upper()}]: {r.get('answer', '')}")
+            if r.get("evidence"):
+                combined_evidence.extend(r["evidence"])
+            if r.get("visual_output") and not combined_visual:
+                combined_visual = r["visual_output"]
+            if r.get("confidence") is not None:
+                confidences.append(r["confidence"])
+            if r.get("conflict"):
+                has_conflict = True
+        else:
+            any_failed = True
+            combined_answers.append(f"[{r['tool'].upper()} FAILED]: {r.get('answer', 'Unknown error')}")
+            
+    if all_failed:
+        # Check if any tool returned INVALID_INPUT specifically
+        if any(r.get("status") == "INVALID_INPUT" for r in results):
+            status = "INVALID_INPUT"
+        else:
+            status = "MODEL_UNAVAILABLE"
+        trace.append(f"SYNTHESIS: All tools failed with status {status}.")
+    elif any_failed:
+        status = "PARTIALLY_VERIFIED"
+        trace.append("SYNTHESIS: Partial success. Some tools failed.")
+    else:
+        status = "SUCCESS"
+        trace.append("SYNTHESIS: All tools succeeded.")
+        
+    avg_conf = sum(confidences) / len(confidences) if confidences else None
+    
+    api_response = {
+        "status": status,
+        "answer": "\n\n".join(combined_answers),
+        "evidence": combined_evidence,
+        "visual_output": combined_visual,
+        "confidence": avg_conf,
+        "conflict": has_conflict
+    }
+    
+    selected_task = tools[0] if len(tools) == 1 else "multi_tool"
+    
+    return {"api_response": api_response, "trace": trace, "selected_task": selected_task}
+
+def verify_evidence_node(state: AgentState):
+    if state.get("api_response", {}).get("status") in ["INVALID_INPUT", "MODEL_UNAVAILABLE", "DATA_UNAVAILABLE"]: return state
     res = state.get("api_response", {})
     trace = state["trace"]
     task = state.get("selected_task")
+    tools = state.get("selected_tools", [])
     
-    # Enforce NO_FABRICATION evidence policy
     try:
         res["evidence"] = validate_evidence(res.get("evidence", []))
     except EvidencePolicyError as e:
-        trace.append(f"VERIFICATION FAILED: {str(e)}")
+        trace.append(f"EVIDENCE_CHECK FAILED: {str(e)}")
         res["status"] = "DATA_UNAVAILABLE"
         return {"api_response": res, "trace": trace}
         
-    if len(res.get("evidence", [])) == 0:
-        trace.append("VERIFICATION: No evidence items returned.")
+    if len(res.get("evidence", [])) == 0 and "change_analysis" not in tools and "optical_sar" not in tools:
+        trace.append("EVIDENCE_CHECK: No evidence items returned for visual task.")
         res["status"] = "DATA_UNAVAILABLE"
         return {"api_response": res, "trace": trace}
         
-    if task == "grounding":
+    if "grounding" in tools:
         has_region = any(ev.get("region") is not None for ev in res["evidence"] if isinstance(ev, dict))
         if not has_region:
-            trace.append("VERIFICATION: Grounding requested but no spatial region found in evidence.")
+            trace.append("EVIDENCE_CHECK: Grounding requested but no spatial region found in evidence.")
             res["status"] = "DATA_UNAVAILABLE"
             
+    trace.append("EVIDENCE_CHECK: SUCCESS")
     return {"api_response": res, "trace": trace}
 
-def conflict_node(state: AgentState):
+def confidence_node(state: AgentState):
     if state.get("api_response", {}).get("status") in ["INVALID_INPUT", "MODEL_UNAVAILABLE", "DATA_UNAVAILABLE"]: return state
     res = state.get("api_response", {})
     trace = state["trace"]
     
     if res.get("conflict") is True:
-        trace.append("CONFLICT DETECTION: Conflict explicitly flagged by specialist.")
-        # Uncertainty will be handled in abstain_node
+        trace.append("CONFIDENCE_CALCULATION: Conflict explicitly flagged by specialist. Reducing confidence.")
         if res.get("confidence") is not None:
             res["confidence"] = max(0.0, res["confidence"] - 0.4)
             
+    trace.append("CONFIDENCE_CALCULATION: SUCCESS")
     return {"api_response": res, "trace": trace}
 
 def abstain_node(state: AgentState):
@@ -161,41 +249,40 @@ def abstain_node(state: AgentState):
         res["abstention_reason"] = "Required evidence could not be generated."
         res["answer"] = "DATA_UNAVAILABLE: " + res["abstention_reason"]
     else:
-        # Check abstention via policy
         policy_res = enforce_abstention(res.get("evidence", []), res.get("conflict", False))
         
-        # Override the status to match PDF exactly
-        res["status"] = policy_res["status"]
-        
         if policy_res["status"] == "INSUFFICIENT_EVIDENCE":
+            res["status"] = policy_res["status"]
             res["abstention_reason"] = policy_res["abstention_reason"]
             trace.append(f"ABSTENTION: {policy_res['abstention_reason']}")
             res["answer"] = "INSUFFICIENT EVIDENCE: " + policy_res["abstention_reason"]
             
         elif policy_res["status"] == "PARTIALLY_VERIFIED":
+            if res["status"] == "SUCCESS":
+                res["status"] = policy_res["status"]
             res["abstention_reason"] = policy_res["abstention_reason"]
             trace.append(f"ABSTENTION (PARTIAL): {policy_res['abstention_reason']}")
 
     return {"api_response": res, "trace": trace}
 
 workflow = StateGraph(AgentState)
-workflow.add_node("validate", validate_node)
-workflow.add_node("understand", understand_node)
-workflow.add_node("route", route_node)
-workflow.add_node("execute", execute_node)
-workflow.add_node("aggregate", aggregate_node)
-workflow.add_node("verify", verify_node)
-workflow.add_node("conflict", conflict_node)
+workflow.add_node("validate_inputs", validate_node)
+workflow.add_node("parse_query", parse_query_node)
+workflow.add_node("plan_tools", plan_tools_node)
+workflow.add_node("execute_tools", execute_tools_node)
+workflow.add_node("synthesize_results", synthesize_results_node)
+workflow.add_node("verify_evidence", verify_evidence_node)
+workflow.add_node("calculate_confidence", confidence_node)
 workflow.add_node("abstain", abstain_node)
 
-workflow.set_entry_point("validate")
-workflow.add_edge("validate", "understand")
-workflow.add_edge("understand", "route")
-workflow.add_edge("route", "execute")
-workflow.add_edge("execute", "aggregate")
-workflow.add_edge("aggregate", "verify")
-workflow.add_edge("verify", "conflict")
-workflow.add_edge("conflict", "abstain")
+workflow.set_entry_point("validate_inputs")
+workflow.add_edge("validate_inputs", "parse_query")
+workflow.add_edge("parse_query", "plan_tools")
+workflow.add_edge("plan_tools", "execute_tools")
+workflow.add_edge("execute_tools", "synthesize_results")
+workflow.add_edge("synthesize_results", "verify_evidence")
+workflow.add_edge("verify_evidence", "calculate_confidence")
+workflow.add_edge("calculate_confidence", "abstain")
 workflow.add_edge("abstain", END)
 
 app_graph = workflow.compile()

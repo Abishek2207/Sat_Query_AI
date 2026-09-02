@@ -123,7 +123,10 @@ async def analyze(
             provenance=api_res.get("provenance"),
             validation=result.get("validation_results"),
             conflict=api_res.get("conflict", False),
-            abstention_reason=api_res.get("abstention_reason")
+            abstention_reason=api_res.get("abstention_reason"),
+            selected_tools=result.get("selected_tools"),
+            parsed_intent=result.get("parsed_intent"),
+            warnings=result.get("warnings")
         )
         
         # Log to history DB
@@ -176,7 +179,10 @@ async def download_report(
             provenance=api_res.get("provenance"),
             validation=result.get("validation_results"),
             conflict=api_res.get("conflict", False),
-            abstention_reason=api_res.get("abstention_reason")
+            abstention_reason=api_res.get("abstention_reason"),
+            selected_tools=result.get("selected_tools"),
+            parsed_intent=result.get("parsed_intent"),
+            warnings=result.get("warnings")
         )
 
         report_bytes = generate_pdf_report(response_obj, query)
