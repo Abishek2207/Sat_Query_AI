@@ -1,3 +1,4 @@
+import time
 import json
 from typing import List
 from datetime import datetime
@@ -112,6 +113,7 @@ async def analyze(
         result = await app_graph.ainvoke(state)
         api_res = result.get("api_response", {})
 
+        t_ser = time.time()
         response_obj = AnalysisResponse(
             task=result.get("selected_task", "unknown"),
             answer=api_res.get("answer", "ERROR"),
@@ -132,6 +134,7 @@ async def analyze(
         # Log to history DB
         log_request(query, response_obj.model_dump())
 
+        print(f"[PERF] response serialization: {time.time() - t_ser:.2f}s")
         return response_obj
     except Exception as e:
         return AnalysisResponse(
@@ -168,6 +171,7 @@ async def download_report(
         result = await app_graph.ainvoke(state)
         api_res = result.get("api_response", {})
 
+        t_ser = time.time()
         response_obj = AnalysisResponse(
             task=result.get("selected_task", "unknown"),
             answer=api_res.get("answer", "ERROR"),

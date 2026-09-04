@@ -90,9 +90,7 @@ export default function App() {
     });
 
     try {
-      const res = await axios.post(`${API_BASE}/analyze`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      });
+      const res = await axios.post(`${API_BASE}/analyze`, formData);
       active = false;
       setExecStep(6);
       setTimeout(() => {
@@ -102,11 +100,22 @@ export default function App() {
     } catch (err) {
       active = false;
       setIsExecuting(false);
+      
+      let errMsg = `HTTP ERROR: Failed to fetch from backend at ${API_BASE}.`;
+      if (err.response) {
+        errMsg = `HTTP ERROR ${err.response.status}: ${err.response.data?.detail || err.message}`;
+      } else if (err.request) {
+        errMsg = `Backend unavailable at ${API_BASE}. ` + 
+                 (API_BASE.includes('127.0.0.1') || API_BASE.includes('localhost') 
+                  ? "Production frontend is attempting to contact a local backend. A separate heavy-compute server (e.g., Render, GCP, AWS) is required to host the FastAPI inference backend. Once deployed, set VITE_API_BASE_URL in Vercel to point to it." 
+                  : "Check if the backend server is running and accessible.");
+      }
+      
       setResult({
         status: 'DATA_UNAVAILABLE',
-        answer: 'Failed to connect to SatQuery backend or encountered a fatal execution error.',
+        answer: errMsg,
         task: 'error',
-        execution_trace: ['ERROR: Network or server failure']
+        execution_trace: ['ERROR: ' + errMsg]
       });
     }
   };

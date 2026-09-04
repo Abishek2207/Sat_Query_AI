@@ -1,0 +1,35 @@
+{
+  "dataset_name": "Sacramento_Temporal_Optical_SAR",
+  "source": "Microsoft Planetary Computer",
+  "license": "Open Data",
+  "location": "Lon -121.5, Lat 38.5",
+  "optical": {
+    "sensor": "Sentinel-2",
+    "product": "L2A",
+    "bands": [
+      "B02",
+      "B03",
+      "B04",
+      "B08"
+    ],
+    "resolution_m": 10,
+    "before_date": "2023-05-29T18:49:21.024000+00:00",
+    "after_date": "2024-05-28T18:49:19.025000+00:00"
+  },
+  "sar": {
+    "sensor": "Sentinel-1",
+    "product": "RTC",
+    "polarizations": [
+      "VV",
+      "VH"
+    ],
+    "resolution_m": 10,
+    "before_date": "2023-05-30T14:08:19.391027+00:00",
+    "after_date": "2024-05-29T14:16:21.050698+00:00"
+  },
+  "coregistration": {
+    "crs": "EPSG:32610",
+    "grid": "256x256, 10m",
+    "method": "rasterio WarpedVRT onto optical_before grid (nearest for S2, bilinear for S1)"
+  }
+}

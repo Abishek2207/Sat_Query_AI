@@ -1,0 +1,163 @@
+[
+    {
+        "test": "VQA",
+        "status": "SUCCESS",
+        "task": "vqa",
+        "answer": "[VQA]: 1",
+        "duration": 19.170838832855225,
+        "trace": [
+            "INPUT_VALIDATION: opt_b.tif (Modality: optical, Bands: 1)",
+            "QUERY_UNDERSTANDING: Parsed intents -> {'vqa': True, 'captioning': False, 'grounding': False, 'land_cover': False, 'change_analysis': False, 'optical_sar': False, 'multi_tool': False}",
+            "TOOL_SELECTION: Selected tools ['vqa'].",
+            "EXECUTION: Tool 'vqa' returned status SUCCESS",
+            "SYNTHESIS: All tools succeeded.",
+            "EVIDENCE_CHECK: SUCCESS",
+            "CONFIDENCE_CALCULATION: SUCCESS"
+        ]
+    },
+    {
+        "test": "Captioning",
+        "status": "SUCCESS",
+        "task": "captioning",
+        "answer": "[CAPTIONING]: it ' s a big piece of land",
+        "duration": 12.799955129623413,
+        "trace": [
+            "INPUT_VALIDATION: opt_b.tif (Modality: optical, Bands: 1)",
+            "QUERY_UNDERSTANDING: Parsed intents -> {'vqa': False, 'captioning': True, 'grounding': False, 'land_cover': False, 'change_analysis': False, 'optical_sar': False, 'multi_tool': False}",
+            "TOOL_SELECTION: Selected tools ['captioning'].",
+            "EXECUTION: Tool 'captioning' returned status SUCCESS",
+            "SYNTHESIS: All tools succeeded.",
+            "EVIDENCE_CHECK: SUCCESS",
+            "CONFIDENCE_CALCULATION: SUCCESS"
+        ]
+    },
+    {
+        "test": "Grounding",
+        "status": "SUCCESS",
+        "task": "grounding",
+        "answer": "[GROUNDING]: Detected objects matching the query.",
+        "duration": 22.879757404327393,
+        "trace": [
+            "INPUT_VALIDATION: opt_b.tif (Modality: optical, Bands: 1)",
+            "QUERY_UNDERSTANDING: Parsed intents -> {'vqa': False, 'captioning': False, 'grounding': True, 'land_cover': False, 'change_analysis': False, 'optical_sar': False, 'multi_tool': False}",
+            "TOOL_SELECTION: Selected tools ['grounding'].",
+            "EXECUTION: Tool 'grounding' returned status SUCCESS",
+            "SYNTHESIS: All tools succeeded.",
+            "EVIDENCE_CHECK: SUCCESS",
+            "CONFIDENCE_CALCULATION: SUCCESS"
+        ]
+    },
+    {
+        "test": "Land Cover",
+        "status": "SUCCESS",
+        "task": "land_cover_classification",
+        "answer": "[LAND_COVER_CLASSIFICATION]: The image is classified as SeaLake.",
+        "duration": 4.7223358154296875,
+        "trace": [
+            "INPUT_VALIDATION: opt_b.tif (Modality: optical, Bands: 1)",
+            "QUERY_UNDERSTANDING: Parsed intents -> {'vqa': False, 'captioning': False, 'grounding': False, 'land_cover': True, 'change_analysis': False, 'optical_sar': False, 'multi_tool': False}",
+            "TOOL_SELECTION: Selected tools ['land_cover_classification'].",
+            "EXECUTION: Tool 'land_cover_classification' returned status SUCCESS",
+            "SYNTHESIS: All tools succeeded.",
+            "EVIDENCE_CHECK: SUCCESS",
+            "CONFIDENCE_CALCULATION: SUCCESS"
+        ]
+    },
+    {
+        "test": "Temporal Change",
+        "status": "SUCCESS",
+        "task": "change_analysis",
+        "answer": "[CHANGE_ANALYSIS]: Minor change detected in approximately 4.9% of the valid image area.",
+        "duration": 0.1128230094909668,
+        "trace": [
+            "INPUT_VALIDATION: opt_b.tif (Modality: optical, Bands: 1)",
+            "INPUT_VALIDATION: opt_a.tif (Modality: optical, Bands: 1)",
+            "QUERY_UNDERSTANDING: Parsed intents -> {'vqa': False, 'captioning': False, 'grounding': False, 'land_cover': False, 'change_analysis': True, 'optical_sar': False, 'multi_tool': False}",
+            "TOOL_SELECTION: Selected tools ['change_analysis'].",
+            "EXECUTION: Tool 'change_analysis' returned status SUCCESS",
+            "SYNTHESIS: All tools succeeded.",
+            "EVIDENCE_CHECK: SUCCESS",
+            "CONFIDENCE_CALCULATION: SUCCESS"
+        ]
+    },
+    {
+        "test": "Optical+SAR",
+        "status": "SUCCESS",
+        "task": "optical_sar",
+        "answer": "[OPTICAL_SAR]: Optical and SAR images successfully co-registered and analyzed. The scene is dominated by Vegetation/Water/Low Backscatter based on SAR backscatter. The spatial correlation between the modalities is 0.059.",
+        "duration": 0.9005770683288574,
+        "trace": [
+            "INPUT_VALIDATION: opt_b.tif (Modality: optical, Bands: 1)",
+            "INPUT_VALIDATION: sar_b.tif (Modality: sar, Bands: 1)",
+            "QUERY_UNDERSTANDING: Parsed intents -> {'vqa': False, 'captioning': False, 'grounding': False, 'land_cover': False, 'change_analysis': False, 'optical_sar': True, 'multi_tool': False}",
+            "TOOL_SELECTION: Selected tools ['optical_sar'].",
+            "EXECUTION: Tool 'optical_sar' returned status SUCCESS",
+            "SYNTHESIS: All tools succeeded.",
+            "EVIDENCE_CHECK: SUCCESS",
+            "CONFIDENCE_CALCULATION: SUCCESS"
+        ]
+    },
+    {
+        "test": "Multi-Tool",
+        "status": "SUCCESS",
+        "task": "multi_tool",
+        "answer": "[CAPTIONING]: it ' s a big piece of land\n\n[GROUNDING]: Detected objects matching the query.",
+        "duration": 17.88942050933838,
+        "trace": [
+            "INPUT_VALIDATION: opt_b.tif (Modality: optical, Bands: 1)",
+            "QUERY_UNDERSTANDING: Parsed intents -> {'vqa': False, 'captioning': True, 'grounding': True, 'land_cover': False, 'change_analysis': False, 'optical_sar': False, 'multi_tool': True}",
+            "TOOL_SELECTION: Selected tools ['captioning', 'grounding'].",
+            "EXECUTION: Tool 'captioning' returned status SUCCESS",
+            "EXECUTION: Tool 'grounding' returned status SUCCESS",
+            "SYNTHESIS: All tools succeeded.",
+            "EVIDENCE_CHECK: SUCCESS",
+            "CONFIDENCE_CALCULATION: SUCCESS"
+        ],
+        "selected_tools": [
+            "captioning",
+            "grounding"
+        ]
+    },
+    {
+        "test": "Hallucination Trap",
+        "status": "DATA_UNAVAILABLE",
+        "task": "vqa",
+        "answer": "DATA_UNAVAILABLE: Required evidence could not be generated.",
+        "duration": 4.806029558181763,
+        "trace": [
+            "INPUT_VALIDATION: opt_b.tif (Modality: optical, Bands: 1)",
+            "QUERY_UNDERSTANDING: Parsed intents -> {'vqa': True, 'captioning': False, 'grounding': False, 'land_cover': False, 'change_analysis': False, 'optical_sar': False, 'multi_tool': False}",
+            "TOOL_SELECTION: Selected tools ['vqa'].",
+            "EXECUTION: Tool 'vqa' returned status SUCCESS",
+            "SYNTHESIS: All tools succeeded.",
+            "EVIDENCE_CHECK FAILED: Insufficient visual evidence to verify a hospital or specific population metrics without spatial grounding.",
+            "ABSTENTION: Abstaining due to missing data/evidence."
+        ]
+    },
+    {
+        "test": "Missing Temporal",
+        "status": "DATA_UNAVAILABLE",
+        "task": "unknown",
+        "answer": "DATA_UNAVAILABLE: Required evidence could not be generated.",
+        "duration": 0.0411686897277832,
+        "trace": [
+            "INPUT_VALIDATION: opt_b.tif (Modality: optical, Bands: 1)",
+            "QUERY_UNDERSTANDING: Parsed intents -> {'vqa': False, 'captioning': False, 'grounding': False, 'land_cover': False, 'change_analysis': True, 'optical_sar': False, 'multi_tool': False}",
+            "TOOL_SELECTION FAILED: Requested multi-image capability but provided only 1 image.",
+            "ABSTENTION: Abstaining due to missing data/evidence."
+        ]
+    },
+    {
+        "test": "Missing SAR",
+        "status": "DATA_UNAVAILABLE",
+        "task": "unknown",
+        "answer": "DATA_UNAVAILABLE: Required evidence could not be generated.",
+        "duration": 0.03366971015930176,
+        "trace": [
+            "INPUT_VALIDATION: opt_b.tif (Modality: optical, Bands: 1)",
+            "QUERY_UNDERSTANDING: Parsed intents -> {'vqa': False, 'captioning': False, 'grounding': False, 'land_cover': False, 'change_analysis': False, 'optical_sar': True, 'multi_tool': False}",
+            "TOOL_SELECTION FAILED: Requested multi-image capability but provided only 1 image.",
+            "ABSTENTION: Abstaining due to missing data/evidence."
+        ]
+    }
+]

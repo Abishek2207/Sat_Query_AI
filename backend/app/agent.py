@@ -1,3 +1,4 @@
+import time
 from typing import TypedDict, List, Dict, Any, Optional
 from langgraph.graph import StateGraph, END
 from .validator import validate_image_bytes
@@ -21,6 +22,8 @@ class AgentState(TypedDict):
     warnings: List[str]
 
 def validate_node(state: AgentState):
+    t0 = time.time()
+    t0_validate_node = time.time()
     trace = state.get("trace", [])
     val_results = []
     
@@ -29,7 +32,8 @@ def validate_node(state: AgentState):
         val_results.append(res)
         if not res.valid:
             trace.append(f"INPUT_VALIDATION FAILED: {f['filename']} -> {res.reason}")
-            return {"api_response": {"status": "INVALID_INPUT", "answer": "VALIDATION_FAILED: " + res.reason}, "validation_results": val_results, "trace": trace}
+            print(f"[PERF] file validation: {time.time() - t0:.2f}s")
+    return {"api_response": {"status": "INVALID_INPUT", "answer": "VALIDATION_FAILED: " + res.reason}, "validation_results": val_results, "trace": trace}
         trace.append(f"INPUT_VALIDATION: {f['filename']} (Modality: {res.modality}, Bands: {res.bands})")
         
     if len(val_results) == 2:
@@ -37,12 +41,17 @@ def validate_node(state: AgentState):
         pair_res = validate_image_pair(val_results[0], val_results[1])
         if not pair_res.valid:
             trace.append(f"INPUT_VALIDATION FAILED (PAIR): {pair_res.reason}")
-            return {"api_response": {"status": "DATA_UNAVAILABLE", "answer": "DATA_UNAVAILABLE: " + pair_res.reason, "abstention_reason": pair_res.reason}, "validation_results": val_results, "trace": trace}
+            print(f"[PERF] file validation: {time.time() - t0:.2f}s")
+    return {"api_response": {"status": "DATA_UNAVAILABLE", "answer": "DATA_UNAVAILABLE: " + pair_res.reason, "abstention_reason": pair_res.reason}, "validation_results": val_results, "trace": trace}
             
+    print(f"[PERF] file validation: {time.time() - t0:.2f}s")
     return {"validation_results": val_results, "trace": trace}
 
 def parse_query_node(state: AgentState):
-    if state.get("api_response", {}).get("status") in ["INVALID_INPUT", "DATA_UNAVAILABLE"]: return state
+    t0 = time.time()
+    t0_parse_query_node = time.time()
+    if state.get("api_response", {}).get("status") in ["INVALID_INPUT", "DATA_UNAVAILABLE"]: print(f"[PERF] query parsing: {time.time() - t0:.2f}s")
+    return state
     query = state["query"].lower()
     
     intent = {
@@ -84,10 +93,14 @@ def parse_query_node(state: AgentState):
         
     trace = state.get("trace", [])
     trace.append(f"QUERY_UNDERSTANDING: Parsed intents -> {intent}")
+    print(f"[PERF] query parsing: {time.time() - t0:.2f}s")
     return {"parsed_intent": intent, "trace": trace}
 
 def plan_tools_node(state: AgentState):
-    if state.get("api_response", {}).get("status") in ["INVALID_INPUT", "DATA_UNAVAILABLE"]: return state
+    t0 = time.time()
+    t0_plan_tools_node = time.time()
+    if state.get("api_response", {}).get("status") in ["INVALID_INPUT", "DATA_UNAVAILABLE"]: print(f"[PERF] specialist selection: {time.time() - t0:.2f}s")
+    return state
     
     intent = state.get("parsed_intent", {})
     trace = state["trace"]
@@ -106,7 +119,8 @@ def plan_tools_node(state: AgentState):
     elif img_count == 1:
         if intent.get("change_analysis") or intent.get("optical_sar"):
             trace.append("TOOL_SELECTION FAILED: Requested multi-image capability but provided only 1 image.")
-            return {"api_response": {"status": "DATA_UNAVAILABLE", "answer": "DATA_UNAVAILABLE: This operation requires two compatible images."}, "trace": trace}
+            print(f"[PERF] specialist selection: {time.time() - t0:.2f}s")
+    return {"api_response": {"status": "DATA_UNAVAILABLE", "answer": "DATA_UNAVAILABLE: This operation requires two compatible images."}, "trace": trace}
             
         if intent.get("captioning"):
             tools.append("captioning")
@@ -119,13 +133,18 @@ def plan_tools_node(state: AgentState):
             
     if not tools:
         trace.append("TOOL_SELECTION FAILED: Ambiguous or unsupported input configuration.")
-        return {"api_response": {"status": "INVALID_INPUT", "answer": "Ambiguous configuration."}, "trace": trace}
+        print(f"[PERF] specialist selection: {time.time() - t0:.2f}s")
+    return {"api_response": {"status": "INVALID_INPUT", "answer": "Ambiguous configuration."}, "trace": trace}
 
     trace.append(f"TOOL_SELECTION: Selected tools {tools}.")
+    print(f"[PERF] specialist selection: {time.time() - t0:.2f}s")
     return {"selected_tools": tools, "trace": trace, "warnings": warnings}
 
 async def execute_tools_node(state: AgentState):
-    if state.get("api_response", {}).get("status") in ["INVALID_INPUT", "DATA_UNAVAILABLE"]: return state
+    t0 = time.time()
+    t0_execute_tools_node = time.time()
+    if state.get("api_response", {}).get("status") in ["INVALID_INPUT", "DATA_UNAVAILABLE"]: print(f"[PERF] specialist inference: {time.time() - t0:.2f}s")
+    return state
     trace = state["trace"]
     tools = state.get("selected_tools", [])
     
@@ -136,6 +155,7 @@ async def execute_tools_node(state: AgentState):
         tool_results.append(res)
         trace.append(f"EXECUTION: Tool '{tool}' returned status {res.get('status')}")
         
+    print(f"[PERF] specialist inference: {time.time() - t0:.2f}s")
     return {"tool_results": tool_results, "trace": trace}
 
 def synthesize_results_node(state: AgentState):
@@ -199,7 +219,10 @@ def synthesize_results_node(state: AgentState):
     return {"api_response": api_response, "trace": trace, "selected_task": selected_task}
 
 def verify_evidence_node(state: AgentState):
-    if state.get("api_response", {}).get("status") in ["INVALID_INPUT", "MODEL_UNAVAILABLE", "DATA_UNAVAILABLE"]: return state
+    t0 = time.time()
+    t0_verify_evidence_node = time.time()
+    if state.get("api_response", {}).get("status") in ["INVALID_INPUT", "MODEL_UNAVAILABLE", "DATA_UNAVAILABLE"]: print(f"[PERF] evidence verification: {time.time() - t0:.2f}s")
+    return state
     res = state.get("api_response", {})
     trace = state["trace"]
     task = state.get("selected_task")
@@ -210,12 +233,14 @@ def verify_evidence_node(state: AgentState):
     except EvidencePolicyError as e:
         trace.append(f"EVIDENCE_CHECK FAILED: {str(e)}")
         res["status"] = "DATA_UNAVAILABLE"
-        return {"api_response": res, "trace": trace}
+        print(f"[PERF] evidence verification: {time.time() - t0:.2f}s")
+    return {"api_response": res, "trace": trace}
         
     if len(res.get("evidence", [])) == 0 and "change_analysis" not in tools and "optical_sar" not in tools:
         trace.append("EVIDENCE_CHECK: No evidence items returned for visual task.")
         res["status"] = "DATA_UNAVAILABLE"
-        return {"api_response": res, "trace": trace}
+        print(f"[PERF] evidence verification: {time.time() - t0:.2f}s")
+    return {"api_response": res, "trace": trace}
         
     if "grounding" in tools:
         has_region = any(ev.get("region") is not None for ev in res["evidence"] if isinstance(ev, dict))
@@ -224,6 +249,7 @@ def verify_evidence_node(state: AgentState):
             res["status"] = "DATA_UNAVAILABLE"
             
     trace.append("EVIDENCE_CHECK: SUCCESS")
+    print(f"[PERF] evidence verification: {time.time() - t0:.2f}s")
     return {"api_response": res, "trace": trace}
 
 def confidence_node(state: AgentState):
