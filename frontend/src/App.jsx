@@ -112,7 +112,7 @@ export default function App() {
       }
       
       setResult({
-        status: 'DATA_UNAVAILABLE',
+        status: 'BACKEND_UNAVAILABLE',
         answer: errMsg,
         task: 'error',
         execution_trace: ['ERROR: ' + errMsg]
@@ -291,6 +291,17 @@ export default function App() {
                 </div>
               )}
 
+              {result && !isExecuting && result.status === 'BACKEND_UNAVAILABLE' && (
+                <motion.div initial={{opacity:0}} animate={{opacity:1}} className="unavailable-state" style={{border: '1px solid #d32f2f', background: 'rgba(211, 47, 47, 0.05)'}}>
+                  <AlertTriangle size={32} color="#d32f2f" />
+                  <h3 style={{color: '#d32f2f'}}>Backend Unavailable</h3>
+                  <p>AI backend is currently unavailable.</p>
+                  <p style={{marginTop:'12px', fontSize:'12px', color: 'var(--text-muted)'}}>{result.answer}</p>
+                  
+                  <button className="btn-secondary" style={{marginTop:'24px'}} onClick={()=>setResult(null)}>Try New Query</button>
+                </motion.div>
+              )}
+
               {result && !isExecuting && result.status === 'DATA_UNAVAILABLE' && (
                 <motion.div initial={{opacity:0}} animate={{opacity:1}} className="unavailable-state">
                   <AlertTriangle size={32} />
@@ -328,7 +339,7 @@ export default function App() {
                 </motion.div>
               )}
 
-              {result && !isExecuting && result.status !== 'DATA_UNAVAILABLE' && (
+              {result && !isExecuting && result.status !== 'DATA_UNAVAILABLE' && result.status !== 'BACKEND_UNAVAILABLE' && (
                 <motion.div initial={{opacity:0}} animate={{opacity:1}} className="result-container">
                   
                   <div className="result-header">
