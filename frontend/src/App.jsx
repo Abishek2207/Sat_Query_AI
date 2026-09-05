@@ -451,6 +451,26 @@ export default function App() {
                     </div>
                   </div>
 
+                  {result.evidence && result.evidence.length > 0 && (
+                    <div className="evidence-panel" style={{marginTop: '24px', background: 'var(--surface-light)', borderRadius: '12px', padding: '16px', border: '1px solid var(--border)'}}>
+                      <div style={{fontSize:'12px', fontWeight:'600', color:'var(--text)', marginBottom:'12px', display:'flex', alignItems:'center', gap:'8px'}}>
+                        <CheckCircle size={14} color="var(--primary)" /> Extracted Evidence
+                      </div>
+                      <div style={{display: 'flex', flexDirection: 'column', gap: '12px'}}>
+                        {result.evidence.map((ev, i) => (
+                          <div key={i} style={{background: 'var(--surface)', padding: '12px', borderRadius: '8px', border: '1px solid var(--border-light)'}}>
+                            <div style={{fontSize: '13px', fontWeight: '500', color: 'var(--text)', marginBottom: '4px'}}>{ev.claim}</div>
+                            <div style={{fontSize: '12px', color: 'var(--text-muted)'}}>{ev.evidence}</div>
+                            <div style={{display: 'flex', gap: '8px', marginTop: '8px'}}>
+                              <span style={{fontSize: '10px', padding: '2px 6px', background: 'rgba(255,255,255,0.05)', borderRadius: '4px', color: 'var(--text-muted)'}}>{ev.model}</span>
+                              {ev.confidence && <span style={{fontSize: '10px', padding: '2px 6px', background: 'rgba(76, 175, 80, 0.1)', borderRadius: '4px', color: '#4caf50'}}>Conf: {(ev.confidence*100).toFixed(1)}%</span>}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                   {result.execution_trace && (
                     <div className="trace-panel">
                       <div className="trace-header" onClick={()=>setTraceOpen(!traceOpen)}>
