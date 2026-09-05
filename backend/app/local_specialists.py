@@ -27,12 +27,23 @@ def _enforce_memory_limit(required_mb: int, model_name: str):
     except:
         pass
     
-    if os.getenv("RENDER") == "true" and required_mb > 400:
-        raise MemoryError(f"Insufficient RAM. {model_name} requires ~{required_mb}MB. Render Free limits this instance to 512MB, preventing PyTorch execution.")
-        
     avail_mb = _get_available_memory_mb()
-    if avail_mb < required_mb:
-        raise MemoryError(f"Insufficient RAM. {model_name} requires ~{required_mb}MB but only {avail_mb:.1f}MB is available. (Render Free limit reached).")
+    # Check cgroup limit if running in a container (like Render/Docker)
+    try:
+        if os.path.exists('/sys/fs/cgroup/memory/memory.limit_in_bytes'):
+            with open('/sys/fs/cgroup/memory/memory.limit_in_bytes', 'r') as f:
+                cgroup_limit = int(f.read().strip()) / (1024 * 1024)
+                if cgroup_limit < 100000: # ignore if it's some crazy high un-set number
+                    avail_mb = min(avail_mb, cgroup_limit)
+    except:
+        pass
+
+    # On local host or cloud, we allow it to attempt to run
+    # Only throw error if it's catastrophically low (< 300MB)
+    if avail_mb < 300:
+        raise MemoryError(f"System has only {avail_mb:.1f}MB RAM available, which is critically low for {model_name} (needs {required_mb}MB). Upgrade your hosting plan to at least 1GB.")
+    elif avail_mb < required_mb:
+        print(f"[WARNING] Available memory ({avail_mb:.1f}MB) is lower than recommended ({required_mb}MB) for {model_name}. Proceeding anyway...")
 
 def _free_memory(model_key: str = None):
     if model_key and model_key in _GLOBAL_MODELS:

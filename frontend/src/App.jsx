@@ -3,7 +3,7 @@ import axios from 'axios';
 import { useDropzone } from 'react-dropzone';
 import { 
   Satellite, UploadCloud, X, Send, Activity, ChevronDown, ChevronUp, 
-  CheckCircle, AlertCircle, Eye, Cpu, Database, Map, Maximize, Layers, AlertTriangle, FileText
+  CheckCircle, AlertCircle, Eye, Cpu, Database, Map, Maximize, Layers, AlertTriangle, FileText, Mic, MicOff
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import './App.css';
@@ -21,6 +21,38 @@ export default function App() {
   const [execStep, setExecStep] = useState(0);
   const [result, setResult] = useState(null);
   const [traceOpen, setTraceOpen] = useState(false);
+  const [isListening, setIsListening] = useState(false);
+  
+  const startListening = () => {
+    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+      alert("Your browser doesn't support speech recognition. Please use Chrome or Edge.");
+      return;
+    }
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const recognition = new SpeechRecognition();
+    recognition.continuous = false;
+    recognition.interimResults = true;
+    recognition.lang = 'en-US';
+
+    recognition.onstart = () => setIsListening(true);
+    
+    recognition.onresult = (event) => {
+      const transcript = Array.from(event.results)
+        .map(result => result[0])
+        .map(result => result.transcript)
+        .join('');
+      setQuery(transcript);
+    };
+
+    recognition.onerror = (event) => {
+      console.error("Speech error:", event.error);
+      setIsListening(false);
+    };
+
+    recognition.onend = () => setIsListening(false);
+    
+    recognition.start();
+  };
   
   // Image Preview Refs
   const imageRef = useRef(null);
@@ -144,12 +176,29 @@ export default function App() {
     return <span className="status-badge unavailable"><AlertCircle size={14}/> Insufficient Evidence</span>;
   };
 
-  const getToolTypeBadge = (tool) => {
+  const getToolTypeBadge = (tool, resultObj = null) => {
     if (!tool) return null;
     const baselines = ['change_analysis', 'optical_sar'];
     const isBaseline = baselines.some(b => tool.includes(b));
     if (isBaseline) {
-      if (tool.includes('change_analysis')) return <span className="status-badge baseline">Deterministic Pixel Baseline</span>;
+      if (tool.includes('change_analysis')) {
+        let isNeural = false;
+        if (resultObj && resultObj.evidence) {
+           isNeural = resultObj.evidence.some(e => e.model === "ResNet18_Siamese_ImageNet");
+        }
+        if (isNeural) {
+           return (
+             <div style={{display:'flex', flexDirection:'column', gap:'4px'}}>
+               <span className="status-badge neural" style={{marginBottom: '2px'}}>Pretrained ResNet18 Feature Comparison</span>
+             </div>
+           );
+        }
+        return (
+          <div style={{display:'flex', flexDirection:'column', gap:'4px'}}>
+             <span className="status-badge baseline" style={{marginBottom: '2px'}}>Deterministic Pixel Difference Baseline</span>
+          </div>
+        );
+      }
       if (tool.includes('optical_sar')) return <span className="status-badge baseline">Statistical Baseline</span>;
       return <span className="status-badge baseline">Deterministic Baseline</span>;
     }
@@ -245,12 +294,35 @@ export default function App() {
                     <span key={q} className="example-chip" onClick={()=>setQuery(q)}>{q}</span>
                   ))}
                 </div>
-                <textarea 
-                  className="query-input" 
-                  placeholder="E.g., How many buildings are visible?"
-                  value={query}
-                  onChange={e => setQuery(e.target.value)}
-                />
+                <div style={{ position: 'relative' }}>
+                  <textarea 
+                    className="query-input" 
+                    placeholder="E.g., How many buildings are visible?"
+                    value={query}
+                    onChange={e => setQuery(e.target.value)}
+                  />
+                  <button 
+                    onClick={startListening}
+                    style={{
+                      position: 'absolute',
+                      right: '12px',
+                      bottom: '12px',
+                      background: isListening ? 'var(--accent)' : 'var(--surface-light)',
+                      border: 'none',
+                      borderRadius: '50%',
+                      width: '36px',
+                      height: '36px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      cursor: 'pointer',
+                      color: isListening ? '#fff' : 'var(--text-muted)'
+                    }}
+                    title="Speak Query"
+                  >
+                    {isListening ? <Mic size={18} /> : <MicOff size={18} />}
+                  </button>
+                </div>
               </div>
 
               <button className="btn-primary" disabled={!query || files.length === 0 || isExecuting} onClick={runAnalysis}>
@@ -429,13 +501,13 @@ export default function App() {
                           result.selected_tools.map((t, i) => (
                             <div key={i} style={{display:'flex', flexDirection:'column', gap:'4px'}}>
                               <span>{t}</span>
-                              {getToolTypeBadge(t)}
+                              {getToolTypeBadge(t, result)}
                             </div>
                           ))
                         ) : (
                           <div style={{display:'flex', flexDirection:'column', gap:'4px'}}>
                             <span>{result.task}</span>
-                            {getToolTypeBadge(result.task)}
+                            {getToolTypeBadge(result.task, result)}
                           </div>
                         )}
                       </div>
