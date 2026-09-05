@@ -92,36 +92,53 @@ def run_local_vqa(query: str, files_data: List[Dict]) -> Dict[str, Any]:
         inputs = processor(image, query, return_tensors="pt").to(device)
         
         with torch.inference_mode():
-            out = model.generate(**inputs)
+            out = model.generate(
+                **inputs,
+                return_dict_in_generate=True,
+                output_scores=True
+            )
             
-        answer = processor.decode(out[0], skip_special_tokens=True)
+        answer = processor.decode(out.sequences[0], skip_special_tokens=True)
+        
+        # Calculate real generation confidence
+        confidence = None
+        if hasattr(out, 'scores') and len(out.scores) > 0:
+            import math
+            log_probs = []
+            for i, logits in enumerate(out.scores):
+                token_id = out.sequences[0][i + 1] # +1 to skip initial token usually
+                probs = torch.nn.functional.softmax(logits, dim=-1)
+                token_prob = probs[0, token_id].item()
+                if token_prob > 0:
+                    log_probs.append(math.log(token_prob))
+            
+            if log_probs:
+                # Geometric mean of token probabilities
+                avg_log_prob = sum(log_probs) / len(log_probs)
+                confidence = math.exp(avg_log_prob)
+                # Clamp between 0.0 and 1.0 just in case
+                confidence = max(0.0, min(1.0, confidence))
         
         model_name = "Salesforce/blip-vqa-base"
         ev = _build_evidence(
             claim=f"Answer to '{query}' is '{answer}'",
-            evidence=f"Inference performed locally on {device}.",
+            evidence=f"VQA generated sequence confidence: {confidence*100:.1f}% if known.",
             model=model_name,
-            version="1.0"
+            version="1.0",
+            conf=confidence
         )
         
         if _get_available_memory_mb() < 2000:
             _free_memory("vqa")
             
         return {
+            "task": "vqa",
             "status": "SUCCESS",
             "answer": answer,
-            "confidence": None,
+            "confidence": confidence,
+            "confidence_type": "generation_confidence",
             "evidence": [ev],
-            "provenance": {
-                "model": model_name,
-                "model_version": "1.0",
-                "inference_timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
-                "device": device,
-                "input_filenames": [f["filename"] for f in files_data],
-                "input_modalities": ["optical_imagery"],
-                "remote_sensing_adapted": False,
-                "geospatial_evidence_generated": False
-            }
+            "visual_output": None
         }
     except MemoryError as me:
         return {"status": "BACKEND_RESOURCE_LIMIT", "answer": str(me), "evidence": []}

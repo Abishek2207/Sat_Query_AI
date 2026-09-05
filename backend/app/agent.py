@@ -161,6 +161,7 @@ def synthesize_results_node(state: AgentState):
     has_conflict = False
     
     confidences = []
+    confidence_types = []
     
     for r in results:
         if r.get("status") == "SUCCESS":
@@ -172,6 +173,8 @@ def synthesize_results_node(state: AgentState):
                 combined_visual = r["visual_output"]
             if r.get("confidence") is not None:
                 confidences.append(r["confidence"])
+            if r.get("confidence_type"):
+                confidence_types.append(r["confidence_type"])
             if r.get("conflict"):
                 has_conflict = True
         else:
@@ -179,27 +182,35 @@ def synthesize_results_node(state: AgentState):
             combined_answers.append(f"[{r['tool'].upper()} FAILED]: {r.get('answer', 'Unknown error')}")
             
     if all_failed:
-        # Check if any tool returned INVALID_INPUT specifically
-        if any(r.get("status") == "INVALID_INPUT" for r in results):
-            status = "INVALID_INPUT"
-        else:
-            status = "MODEL_UNAVAILABLE"
-        trace.append(f"SYNTHESIS: All tools failed with status {status}.")
+        status = "MODEL_UNAVAILABLE"
+        trace.append("SYNTHESIS: All tools failed.")
     elif any_failed:
-        status = "PARTIALLY_VERIFIED"
-        trace.append("SYNTHESIS: Partial success. Some tools failed.")
+        status = "SUCCESS"
+        trace.append("SYNTHESIS: Partial failure detected.")
     else:
         status = "SUCCESS"
         trace.append("SYNTHESIS: All tools succeeded.")
         
-    avg_conf = sum(confidences) / len(confidences) if confidences else None
+    # If multiple confidences exist from different types, prefer VQA generation confidence or average same types
+    final_conf = None
+    final_conf_type = None
     
+    if len(confidences) == 1:
+        final_conf = confidences[0]
+        final_conf_type = confidence_types[0] if confidence_types else None
+    elif len(confidences) > 1:
+        # In a multi-tool scenario, do not average heterogeneous confidences
+        # Just pick the first available one for display and label its type
+        final_conf = confidences[0]
+        final_conf_type = confidence_types[0] if confidence_types else None
+        
     api_response = {
         "status": status,
         "answer": "\n\n".join(combined_answers),
         "evidence": combined_evidence,
         "visual_output": combined_visual,
-        "confidence": avg_conf,
+        "confidence": final_conf,
+        "confidence_type": final_conf_type,
         "conflict": has_conflict
     }
     

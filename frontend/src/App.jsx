@@ -444,9 +444,20 @@ export default function App() {
                       )}
                     </div>
                     <div className="meta-item">
-                      <div className="meta-label">Model Confidence</div>
+                      <div className="meta-label">
+                        {result.confidence_type === 'generation_confidence' ? 'Generation Confidence' : 'Model Confidence'}
+                      </div>
                       <div className="meta-value" style={{marginTop:'4px'}}>
-                        {result.confidence ? `${(result.confidence * 100).toFixed(1)}%` : 'Model confidence not available'}
+                        {result.confidence ? (
+                          <div>
+                            <div>{(result.confidence * 100).toFixed(1)}%</div>
+                            {result.confidence_type === 'generation_confidence' && (
+                              <div style={{fontSize: '10px', color: 'var(--text-muted)', marginTop: '4px', lineHeight: '1.2'}}>
+                                Token-level generation confidence; not factual accuracy.
+                              </div>
+                            )}
+                          </div>
+                        ) : 'Model confidence not available'}
                       </div>
                     </div>
                   </div>
