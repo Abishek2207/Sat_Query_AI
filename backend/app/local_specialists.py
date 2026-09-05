@@ -2,12 +2,43 @@ import io
 import gc
 import os
 import sys
-import torch
 import numpy as np
 from PIL import Image
 from typing import List, Dict, Any
 
 _GLOBAL_MODELS = {}
+
+def _get_available_memory_mb():
+    try:
+        import psutil
+        return psutil.virtual_memory().available / (1024 * 1024)
+    except ImportError:
+        if hasattr(os, 'sysconf'):
+            pages = os.sysconf('SC_AVPHYS_PAGES')
+            page_size = os.sysconf('SC_PAGE_SIZE')
+            if pages > 0 and page_size > 0:
+                return (pages * page_size) / (1024 * 1024)
+        return 4096.0
+
+def _enforce_memory_limit(required_mb: int, model_name: str):
+    import torch
+    torch.set_num_threads(1)
+    torch.set_num_interop_threads(1)
+    
+    avail_mb = _get_available_memory_mb()
+    if avail_mb < required_mb:
+        raise MemoryError(f"Insufficient RAM. {model_name} requires ~{required_mb}MB but only {avail_mb:.1f}MB is available. (Render Free limit reached).")
+
+def _free_memory(model_key: str = None):
+    if model_key and model_key in _GLOBAL_MODELS:
+        del _GLOBAL_MODELS[model_key]
+    gc.collect()
+    try:
+        import torch
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+    except:
+        pass
 
 def _load_image(files_data: List[Dict]) -> Image.Image:
     try:
@@ -40,6 +71,8 @@ def _build_evidence(claim: str, evidence: str, model: str, version: str, region:
 def run_local_vqa(query: str, files_data: List[Dict]) -> Dict[str, Any]:
     from datetime import datetime, timezone
     try:
+        _enforce_memory_limit(800, "BLIP VQA")
+        import torch
         device = "cuda" if torch.cuda.is_available() else "cpu"
         
         if "vqa" not in _GLOBAL_MODELS:
@@ -66,6 +99,9 @@ def run_local_vqa(query: str, files_data: List[Dict]) -> Dict[str, Any]:
             version="1.0"
         )
         
+        if _get_available_memory_mb() < 2000:
+            _free_memory("vqa")
+            
         return {
             "status": "SUCCESS",
             "answer": answer,
@@ -82,6 +118,8 @@ def run_local_vqa(query: str, files_data: List[Dict]) -> Dict[str, Any]:
                 "geospatial_evidence_generated": False
             }
         }
+    except MemoryError as me:
+        return {"status": "BACKEND_RESOURCE_LIMIT", "answer": str(me), "evidence": []}
     except Exception as e:
         return {"status": "MODEL_UNAVAILABLE", "answer": f"Local inference failed: {str(e)}", "evidence": []}
 
@@ -91,6 +129,8 @@ def run_local_captioning(files_data: List[Dict], app_state=None) -> Dict[str, An
     if project_root not in sys.path: sys.path.append(project_root)
         
     try:
+        _enforce_memory_limit(800, "BLIP Captioning")
+        import torch
         device = "cuda" if torch.cuda.is_available() else "cpu"
         
         if "captioning" not in _GLOBAL_MODELS:
@@ -149,6 +189,9 @@ def run_local_captioning(files_data: List[Dict], app_state=None) -> Dict[str, An
             version="1.0"
         )
             
+        if _get_available_memory_mb() < 2000:
+            _free_memory("captioning")
+
         return {
             "status": "SUCCESS",
             "answer": answer,
@@ -156,12 +199,16 @@ def run_local_captioning(files_data: List[Dict], app_state=None) -> Dict[str, An
             "evidence": [ev],
             "provenance": prov
         }
+    except MemoryError as me:
+        return {"status": "BACKEND_RESOURCE_LIMIT", "answer": str(me), "evidence": []}
     except Exception as e:
         return {"status": "MODEL_UNAVAILABLE", "answer": f"Local inference failed: {str(e)}", "evidence": []}
 
 def run_local_grounding(query: str, files_data: List[Dict], confidence_threshold: float = 0.3) -> Dict[str, Any]:
     from datetime import datetime, timezone
     try:
+        _enforce_memory_limit(1000, "GroundingDINO")
+        import torch
         device = "cuda" if torch.cuda.is_available() else "cpu"
         model_name = "IDEA-Research/grounding-dino-base"
         
@@ -202,6 +249,9 @@ def run_local_grounding(query: str, files_data: List[Dict], confidence_threshold
         else:
             answer = "No objects detected matching the query."
             
+        if _get_available_memory_mb() < 2000:
+            _free_memory("grounding")
+
         return {
             "status": "SUCCESS",
             "answer": answer,
@@ -218,5 +268,68 @@ def run_local_grounding(query: str, files_data: List[Dict], confidence_threshold
                 "geospatial_evidence_generated": True
             }
         }
+    except MemoryError as me:
+        return {"status": "BACKEND_RESOURCE_LIMIT", "answer": str(me), "evidence": []}
     except Exception as e:
         return {"status": "MODEL_UNAVAILABLE", "answer": f"Local inference failed: {str(e)}", "evidence": []}
+
+def run_local_land_cover(files_data: List[Dict]) -> Dict[str, Any]:
+    from datetime import datetime, timezone
+    try:
+        _enforce_memory_limit(500, "EuroSAT ResNet") # Relatively small model, needs ~500MB
+        import torch
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        model_name = "nielsr/convnext-tiny-finetuned-eurosat"
+        
+        if "land_cover" not in _GLOBAL_MODELS:
+            from transformers import AutoImageProcessor, AutoModelForImageClassification
+            processor = AutoImageProcessor.from_pretrained(model_name)
+            model = AutoModelForImageClassification.from_pretrained(model_name).to(device)
+            _GLOBAL_MODELS["land_cover"] = (processor, model, device)
+            
+        processor, model, device = _GLOBAL_MODELS["land_cover"]
+        
+        image = _load_image(files_data)
+        inputs = processor(image, return_tensors="pt").to(device)
+        
+        with torch.inference_mode():
+            outputs = model(**inputs)
+            
+        predicted_class_idx = outputs.logits.argmax(-1).item()
+        label = model.config.id2label[predicted_class_idx]
+        conf = float(torch.nn.functional.softmax(outputs.logits, dim=-1)[0, predicted_class_idx].item())
+        
+        answer = f"The primary land cover is {label}."
+        
+        ev = _build_evidence(
+            claim=f"Classified as {label}",
+            evidence=f"EuroSAT classification logic applied on {device}.",
+            model=model_name,
+            version="1.0",
+            conf=conf
+        )
+        
+        if _get_available_memory_mb() < 1000:
+            _free_memory("land_cover")
+
+        return {
+            "status": "SUCCESS",
+            "answer": answer,
+            "confidence": conf,
+            "evidence": [ev],
+            "provenance": {
+                "model": model_name,
+                "model_version": "1.0",
+                "inference_timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+                "device": device,
+                "input_filenames": [f["filename"] for f in files_data],
+                "input_modalities": ["optical_imagery"],
+                "remote_sensing_adapted": True,
+                "geospatial_evidence_generated": False
+            }
+        }
+    except MemoryError as me:
+        return {"status": "BACKEND_RESOURCE_LIMIT", "answer": str(me), "evidence": []}
+    except Exception as e:
+        return {"status": "MODEL_UNAVAILABLE", "answer": f"Local inference failed: {str(e)}", "evidence": []}
+

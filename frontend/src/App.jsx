@@ -140,6 +140,7 @@ export default function App() {
   const getStatusBadge = (status) => {
     if (status === 'SUCCESS' || status === 'VERIFIED') return <span className="status-badge verified"><CheckCircle size={14}/> Evidence Verified</span>;
     if (status === 'PARTIAL' || status === 'PARTIALLY_VERIFIED') return <span className="status-badge partial"><AlertTriangle size={14}/> Partially Verified</span>;
+    if (status === 'MODEL_UNAVAILABLE' || status === 'BACKEND_RESOURCE_LIMIT') return <span className="status-badge" style={{background:'rgba(255, 152, 0, 0.15)', color:'#ff9800'}}><AlertTriangle size={14}/> Resource Limit</span>;
     return <span className="status-badge unavailable"><AlertCircle size={14}/> Insufficient Evidence</span>;
   };
 
