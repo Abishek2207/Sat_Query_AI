@@ -25,6 +25,9 @@ def _enforce_memory_limit(required_mb: int, model_name: str):
     torch.set_num_threads(1)
     torch.set_num_interop_threads(1)
     
+    if os.getenv("RENDER") == "true" and required_mb > 400:
+        raise MemoryError(f"Insufficient RAM. {model_name} requires ~{required_mb}MB. Render Free limits this instance to 512MB, preventing PyTorch execution.")
+        
     avail_mb = _get_available_memory_mb()
     if avail_mb < required_mb:
         raise MemoryError(f"Insufficient RAM. {model_name} requires ~{required_mb}MB but only {avail_mb:.1f}MB is available. (Render Free limit reached).")
